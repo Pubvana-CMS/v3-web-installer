@@ -14,7 +14,6 @@ $encryptionKey   = $data['encryptionKey']   ?? bin2hex(random_bytes(32));
 $error           = $data['error']           ?? '';
 
 $prevBaseUrl     = $_POST['base_url']     ?? $detectedBaseUrl;
-$prevEnvironment = $_POST['environment']  ?? 'production';
 $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
 ?>
 
@@ -57,7 +56,7 @@ $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
         <div class="form-control mb-5">
             <label class="label" for="base_url">
                 <span class="label-text font-medium">Base URL <span class="text-error">*</span></span>
-                <span class="label-text-alt text-base-content/50">Include trailing slash</span>
+                <span class="label-text-alt text-base-content/50">Include trailing slash. Using https:// also enables forced HTTPS.</span>
             </label>
             <input
                 type="url"
@@ -78,28 +77,7 @@ $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
             <?php endif; ?>
         </div>
 
-        <!-- Environment -->
-        <div class="form-control mb-5">
-            <label class="label" for="environment">
-                <span class="label-text font-medium">Environment</span>
-            </label>
-            <select
-                id="environment"
-                name="environment"
-                class="select select-bordered w-full"
-            >
-                <option value="production"  <?= $prevEnvironment === 'production'  ? 'selected' : '' ?>>Production</option>
-                <option value="development" <?= $prevEnvironment === 'development' ? 'selected' : '' ?>>Development</option>
-                <option value="testing"     <?= $prevEnvironment === 'testing'     ? 'selected' : '' ?>>Testing</option>
-            </select>
-            <label class="label">
-                <span class="label-text-alt text-warning">
-                    Use <strong>production</strong> for live sites. Development mode exposes detailed error output.
-                </span>
-            </label>
-        </div>
-
-        <!-- Encryption Key -->
+                <!-- Encryption Key -->
         <div class="form-control mb-6">
             <label class="label" for="encrypt_key">
                 <span class="label-text font-medium">Encryption Key</span>

@@ -133,7 +133,7 @@ Controls admin user creation during installation.
 
 ### public_dir_handling
 
-Controls how the installer handles CI4's `public/` directory convention.
+Controls how the installer handles Pubvana's `public/` directory convention.
 
 | Value | Description |
 |-------|-------------|
@@ -264,7 +264,7 @@ These are used when available but never required:
 ### Project Structure
 
 ```
-ci4-installer/
+pubvana-installer/
 ├── src/                    Source code (modular)
 │   ├── Installer.php       Main orchestrator
 │   ├── Autoloader.php      PSR-4 autoloader
@@ -384,7 +384,7 @@ The `source.zip` value in your config is a URL where the installer can download 
 
 ### Step 1: Build the zip
 
-From your CI4 app's root directory:
+From your Pubvana app's root directory:
 
 ```bash
 composer install --no-dev --optimize-autoloader

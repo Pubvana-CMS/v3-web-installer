@@ -1,6 +1,6 @@
 <?php
 /**
- * CI4 Installer Build Script
+ * Pubvana Installer Build Script
  *
  * Compiles the modular source into a single self-extracting install.php.
  *
@@ -10,6 +10,7 @@
 $projectRoot = dirname(__DIR__);
 $srcDir = $projectRoot . '/src';
 $name = 'install';
+$installerVersion = '0.1.0';
 
 // Parse CLI args
 foreach ($argv as $arg) {
@@ -29,11 +30,13 @@ if (!is_dir($outputDir)) {
     mkdir($outputDir, 0755, true);
 }
 
-echo "CI4 Installer Build Script\n";
-echo "==========================\n\n";
+echo "==========================\n";
+echo "Pubvana Installer Builder\n";
+echo "         v" .$installerVersion;
+echo "\n==========================\n\n";
 
 // --- Step 1: Inline assets into layout template ---
-echo "Step 1: Inlining assets into templates...\n";
+echo "Step 1: Writing assets into templates... ";
 
 $cssPath = $srcDir . '/UI/assets/daisyui.min.css';
 $jsPath = $srcDir . '/UI/assets/alpine.min.js';
@@ -49,8 +52,10 @@ if ($layoutContent) {
     $layoutContent = str_replace('/* ALPINE_JS */', $jsContent, $layoutContent);
 }
 
+echo "done \n";
+
 // --- Step 2: Collect all source files ---
-echo "Step 2: Collecting source files...\n";
+echo "Step 2: Collecting source files... ";
 
 $files = [];
 $iterator = new RecursiveIteratorIterator(
@@ -73,29 +78,33 @@ foreach ($iterator as $file) {
     }
 }
 
-echo "   Collected " . count($files) . " files\n";
+echo "done \n";
 
 // --- Step 3: Create tar.gz archive ---
-echo "Step 3: Creating tar.gz archive...\n";
+echo "Step 3: Building archive... ";
 
 $tarContent = buildTar($files);
 $gzContent = gzencode($tarContent, 9);
 $base64 = base64_encode($gzContent);
 
-echo "   Archive size: " . formatBytes(strlen($gzContent)) . "\n";
-echo "   Base64 size: " . formatBytes(strlen($base64)) . "\n";
+//echo "   Archive size: " . formatBytes(strlen($gzContent)) . "\n";
+//echo "   Base64 size: " . formatBytes(strlen($base64)) . "\n";
+
+echo "done \n";
 
 // --- Step 4: Generate install.php ---
-echo "Step 4: Generating install.php...\n";
+echo "Step 4: Building install.php... ";
 
 $stub = generateStub($base64);
 file_put_contents($outputPath, $stub);
 
 $finalSize = filesize($outputPath);
-echo "   {$name}.php: " . formatBytes($finalSize) . "\n";
+//echo "   {$name}.php: " . formatBytes($finalSize) . "\n";
+
+echo "done \n";
 
 // --- Step 5: Create distribution zip ---
-echo "Step 5: Creating distribution zip...\n";
+echo "Step 5: Building distribution zip... ";
 
 $configSource = $projectRoot . '/installer-config.php';
 $zipOutputPath = $outputDir . '/' . $name . '.zip';
@@ -109,19 +118,26 @@ if (class_exists('ZipArchive')) {
         }
         $zip->close();
         $zipSize = filesize($zipOutputPath);
-        echo "   {$name}.zip: " . formatBytes($zipSize) . "\n";
+        //echo "   {$name}.zip: " . formatBytes($zipSize) . "\n";
         unlink($outputPath);
     } else {
-        echo "   Warning: Could not create zip. ZipArchive failed to open.\n";
-        echo "   {$name}.php kept at: {$outputPath}\n";
+        echo "\n   Warning: Could not create zip. ZipArchive failed to open.\n";
+        echo "\n   {$name}.php kept at: {$outputPath}\n";
     }
 } else {
-    echo "   Warning: ZipArchive not available. Skipping zip creation.\n";
-    echo "   {$name}.php kept at: {$outputPath}\n";
+    echo "\n   Warning: ZipArchive not available. Skipping zip creation.\n";
+    echo "\n   {$name}.php kept at: {$outputPath}\n";
 }
 
+echo "done \n";
+
 echo "\nBuild complete!\n";
-echo "Output: {$outputDir}/\n";
+if ($name && $zipSize)
+    {
+        echo "{$name}.zip is " . formatBytes($zipSize) . "\n"; 
+    }
+ 
+echo "Location: " . $outputDir . "/" . $name . ".zip\n";
 
 // ============================================================
 // Build functions
@@ -190,7 +206,7 @@ function buildTarHeader(string $name, string $content): string
 function generateStub(string $base64Archive): string
 {
     return '<?php
-// CI4 Installer by EnlivenApp
+// Pubvana v3 Web Installer
 // Creative Commons License. Original script by EnlivenApp
 // https://creativecommons.org/licenses/by/4.0/
 
@@ -212,7 +228,7 @@ if (file_exists(__DIR__ . \'/installer-config.php\')) {
     unset($__cfg);
 }
 
-$tmp = __DIR__ . DIRECTORY_SEPARATOR . \'.ci4-installer\';
+$tmp = __DIR__ . DIRECTORY_SEPARATOR . \'.pubvana-installer\';
 
 // Always extract fresh. Remove any previous extraction first.
 if (is_dir($tmp)) {
@@ -268,7 +284,7 @@ if (!$extracted && function_exists(\'exec\')) {
 
 // Method 3: Pure PHP tar.gz parser (last resort)
 if (!$extracted) {
-    $extracted = ci4InstallerPurePHPExtract($archivePath, $tmp);
+    $extracted = pubvanaInstallerPurePHPExtract($archivePath, $tmp);
 }
 
 @unlink($archivePath);
@@ -281,15 +297,15 @@ if (!$extracted) {
 
 // Boot the installer
 require $tmp . DIRECTORY_SEPARATOR . \'Autoloader.php\';
-\\CI4Installer\\Autoloader::register($tmp);
+\\PubvanaInstaller\\Autoloader::register($tmp);
 
-$installer = new \\CI4Installer\\Installer(__DIR__);
+$installer = new \\PubvanaInstaller\\Installer(__DIR__);
 $installer->run();
 
 /**
  * A pure PHP tar.gz extractor. No extensions are required beyond ext-zlib (bundled with PHP).
  */
-function ci4InstallerPurePHPExtract(string $archivePath, string $destDir): bool
+function pubvanaInstallerPurePHPExtract(string $archivePath, string $destDir): bool
 {
     $gz = @file_get_contents($archivePath);
     if ($gz === false) return false;

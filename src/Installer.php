@@ -480,7 +480,7 @@ class Installer
     }
 
     /**
-     * Handles the configuration step. Collects the site URL, APP_ENV and session encryption key.
+     * Handles the configuration step. Collects the site URL and session encryption key. APP_ENV is always production.
      */
     private function handleConfiguration(): string
     {
@@ -496,7 +496,6 @@ class Installer
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $baseUrl       = trim($_POST['base_url']        ?? '');
-            $environment   = trim($_POST['environment']     ?? 'production');
             $encryptionKey = trim($_POST['encrypt_key']  ?? '');
 
             // Basic validation.
@@ -504,8 +503,6 @@ class Installer
                 $error = 'Base URL is required.';
             } elseif (! filter_var($baseUrl, FILTER_VALIDATE_URL)) {
                 $error = 'Base URL does not appear to be a valid URL.';
-            } elseif (! in_array($environment, ['production', 'development'], true)) {
-                $error = 'Environment must be one of: production, development.';
             } elseif (! preg_match('/^[0-9a-fA-F]{64}$/', $encryptionKey)) {
                 $error = 'Session encryption key must be 64 hexadecimal characters.';
             }
@@ -513,7 +510,7 @@ class Installer
             if ($error === null) {
                 $saved = [
                     'base_url'       => rtrim($baseUrl, '/') . '/',
-                    'environment'    => $environment,
+                    'environment'    => 'production',
                     'encryption_key' => $encryptionKey,
                 ];
                 $this->saveToSession(self::SESS_CONFIGURATION, $saved);
@@ -1113,6 +1110,11 @@ class Installer
 
         if (isset($configuration['base_url']) && $configuration['base_url'] !== '') {
             $values['SITE_URL'] = rtrim($configuration['base_url'], '/') . '/';
+
+            // Force HTTPS follows the Base URL scheme. An https:// Base URL
+            // means the site is served over TLS, so enforce it. Local and
+            // docker installs on http:// stay off.
+            $values['FORCE_HTTPS'] = str_starts_with($configuration['base_url'], 'https://') ? 'true' : 'false';
         }
 
         if (isset($configuration['encryption_key']) && $configuration['encryption_key'] !== '') {
