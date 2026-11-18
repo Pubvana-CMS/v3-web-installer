@@ -165,14 +165,14 @@ class WizardRenderer
     {
         $steps = [
             'welcome'       => ['title' => 'Welcome',              'current' => 1],
-            'system-check'  => ['title' => 'System Requirements',  'current' => 2],
-            'filesystem'    => ['title' => 'Filesystem Access',    'current' => 3],
-            'database'      => ['title' => 'Database Setup',       'current' => 4],
-            'configuration' => ['title' => 'App Configuration',    'current' => 5],
-            'app-settings'  => ['title' => 'Application Settings', 'current' => 6],
-            'admin'         => ['title' => 'Admin Account',        'current' => 7],
+            'system-check'  => ['title' => 'System requirements',  'current' => 2],
+            'filesystem'    => ['title' => 'Filesystem access',    'current' => 3],
+            'database'      => ['title' => 'Database setup',       'current' => 4],
+            'configuration' => ['title' => 'App configuration',    'current' => 5],
+            'app-settings'  => ['title' => 'Application settings', 'current' => 6],
+            'admin'         => ['title' => 'Admin account',        'current' => 7],
             'install'       => ['title' => 'Installing',           'current' => 8],
-            'complete'      => ['title' => 'Installation Complete', 'current' => 9],
+            'complete'      => ['title' => 'Installation complete', 'current' => 9],
         ];
 
         $meta = $steps[$step] ?? ['title' => ucfirst($step), 'current' => 1];

@@ -135,7 +135,7 @@ class ConfigValidator
         // install.target_dir (optional, but if present must be a string)
         if (isset($config['install']['target_dir'])) {
             if (! is_string($config['install']['target_dir'])) {
-                $errors[] = "'install.target_dir' must be a string. Use '../' to install one level above the wizard, an absolute path, or '' for the wizard's own folder.";
+                $errors[] = "'install.target_dir' must be a string. Use '../' to install one level above the wizard, an absolute path, or '' for the wizard folder.";
             }
         }
 

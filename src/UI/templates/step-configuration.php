@@ -56,7 +56,7 @@ $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
         <div class="form-control mb-5">
             <label class="label" for="base_url">
                 <span class="label-text font-medium">Base URL <span class="text-error">*</span></span>
-                <span class="label-text-alt text-base-content/50">Include trailing slash. Using https:// also enables forced HTTPS.</span>
+                <span class="label-text-alt text-base-content/50">Include trailing slash. https:// enables forced HTTPS.</span>
             </label>
             <input
                 type="url"
@@ -80,8 +80,8 @@ $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
                 <!-- Encryption Key -->
         <div class="form-control mb-6">
             <label class="label" for="encrypt_key">
-                <span class="label-text font-medium">Encryption Key</span>
-                <span class="label-text-alt text-base-content/50">Auto-generated, 64 hex chars</span>
+                <span class="label-text font-medium">Encryption key</span>
+                <span class="label-text-alt text-base-content/50">64 hexadecimal characters.</span>
             </label>
             <div class="join w-full">
                 <input
@@ -109,7 +109,7 @@ $prevKey         = $_POST['encrypt_key']  ?? $encryptionKey;
             </div>
             <label class="label">
                 <span class="label-text-alt text-info">
-                    This key is used to encrypt session cookies and other sensitive data. Store it securely. Changing it later will invalidate all existing sessions.
+                    Encrypts session data. Changing it logs out all users.
                 </span>
             </label>
         </div>

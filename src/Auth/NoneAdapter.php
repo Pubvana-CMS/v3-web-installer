@@ -26,4 +26,9 @@ class NoneAdapter implements AuthAdapterInterface
     {
         return Result::ok(); // deliberately do nothing
     }
+
+    public function hasAdmin(): bool
+    {
+        return false; // this adapter never creates accounts
+    }
 }

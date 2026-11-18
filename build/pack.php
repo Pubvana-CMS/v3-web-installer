@@ -112,9 +112,9 @@ $zipOutputPath = $outputDir . '/' . $name . '.zip';
 if (class_exists('ZipArchive')) {
     $zip = new ZipArchive();
     if ($zip->open($zipOutputPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
-        $zip->addFile($outputPath, $name . '.php');
+        $zip->addFile($outputPath, $name . '/' . $name . '.php');
         if (file_exists($configSource)) {
-            $zip->addFile($configSource, 'installer-config.php');
+            $zip->addFile($configSource, $name . '/installer-config.php');
         }
         $zip->close();
         $zipSize = filesize($zipOutputPath);

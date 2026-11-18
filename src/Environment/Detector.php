@@ -226,9 +226,24 @@ class Detector
             $host    = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
             $testUrl = "{$scheme}://{$host}/{$token}/check";
 
-            $response = $this->httpGet($testUrl, 3);
+            $probe = $this->httpGetWithStatus($testUrl, 5);
 
-            $env->modRewrite = (str_contains((string) $response, $sentinelContent))
+            // 401 or 403 means HTTP authentication blocked the probe.
+            // Report unknown.
+            if (in_array($probe['status'], [401, 403], true)) {
+                $env->modRewrite       = 'unknown';
+                $env->modRewriteReason = 'auth';
+                return;
+            }
+
+            // No response means the server cannot reach itself. Report unknown.
+            if ($probe['status'] === 0) {
+                $env->modRewrite       = 'unknown';
+                $env->modRewriteReason = 'unreachable';
+                return;
+            }
+
+            $env->modRewrite = str_contains($probe['body'], $sentinelContent)
                 ? 'passed'
                 : 'failed';
         } catch (Throwable) {
@@ -376,6 +391,73 @@ class Detector
     // -------------------------------------------------------------------------
     // HTTP helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * GET a URL and return the status code and body.
+     *
+     * @return array{status: int, body: string}
+     */
+    private function httpGetWithStatus(string $url, int $timeoutSeconds = 10): array
+    {
+        if (extension_loaded('curl')) {
+            $ch = curl_init($url);
+
+            if ($ch === false) {
+                return ['status' => 0, 'body' => ''];
+            }
+
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => $timeoutSeconds,
+                CURLOPT_CONNECTTIMEOUT => min(5, $timeoutSeconds),
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS      => 3,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+                CURLOPT_USERAGENT      => 'Pubvana-Installer/1.0',
+            ]);
+
+            $body   = curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            return [
+                'status' => $status,
+                'body'   => is_string($body) ? $body : '',
+            ];
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'method'        => 'GET',
+                'timeout'       => $timeoutSeconds,
+                'ignore_errors' => true,
+            ],
+            'ssl'  => [
+                'verify_peer'      => false,
+                'verify_peer_name' => false,
+            ],
+        ]);
+
+        try {
+            $body = @file_get_contents($url, false, $context);
+        } catch (Throwable) {
+            return ['status' => 0, 'body' => ''];
+        }
+
+        $status = 0;
+
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\d(?:\.\d)? (\d{3})#', $header, $matches) === 1) {
+                $status = (int) $matches[1];
+            }
+        }
+
+        return [
+            'status' => $status,
+            'body'   => is_string($body) ? $body : '',
+        ];
+    }
 
     /**
      * Perform a GET request and return the response body, or false on failure.

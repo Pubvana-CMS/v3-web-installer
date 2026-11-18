@@ -60,13 +60,6 @@ class ShieldAdapter implements AuthAdapterInterface
     {
         return [
             [
-                'name'      => 'username',
-                'type'      => 'text',
-                'label'     => 'Username',
-                'required'  => true,
-                'maxlength' => 30,
-            ],
-            [
                 'name'     => 'email',
                 'type'     => 'email',
                 'label'    => 'Email',
@@ -94,12 +87,12 @@ class ShieldAdapter implements AuthAdapterInterface
         $email    = trim((string) ($data['email'] ?? ''));
         $password = (string) ($data['password'] ?? '');
 
-        if ($username === '' || $email === '' || $password === '') {
-            return Result::fail('Username, email and password are all required.');
+        if ($email === '' || $password === '') {
+            return Result::fail('Email and password required.');
         }
 
         if (strlen($password) < 8) {
-            return Result::fail('Password must be at least 8 characters long.');
+            return Result::fail('Password must be at least 8 characters.');
         }
 
         // Preferred path: the app's own UserManagement service.
@@ -114,6 +107,21 @@ class ShieldAdapter implements AuthAdapterInterface
         }
 
         return $this->createViaSql($conn, $username, $email, $password);
+    }
+
+    public function hasAdmin(): bool
+    {
+        try {
+            $conn = $this->connect();
+
+            if (! $this->tableExists($conn, 'users')) {
+                return false;
+            }
+
+            return (int) $conn->query('SELECT COUNT(*) FROM `users`')->fetchColumn() > 0;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -177,7 +185,7 @@ class ShieldAdapter implements AuthAdapterInterface
             $umResult = $service->create($username, $email, $password, $this->group);
 
             if (! $umResult->isOK()) {
-                return Result::fail($umResult->reason() ?? 'Admin user creation failed.');
+                return Result::fail($umResult->reason() ?? 'Administrator creation failed.');
             }
 
             $extra = $umResult->extraInfo();
@@ -210,6 +218,10 @@ class ShieldAdapter implements AuthAdapterInterface
     ): Result {
         try {
             $now = date('Y-m-d H:i:s');
+
+            if ($username === '') {
+                $username = $this->deriveUsername($conn, $email);
+            }
 
             // Ensure the target group exists (seeded by flight-shield normally,
             // but never assume the seed ran before the admin substep).
@@ -299,6 +311,35 @@ class ShieldAdapter implements AuthAdapterInterface
     // -------------------------------------------------------------------------
 
     /**
+     * Builds a unique username from the email local part.
+     */
+    private function deriveUsername(PDO $conn, string $email): string
+    {
+        $base = strtolower((string) strstr($email, '@', true));
+        $base = preg_replace('/[^a-z0-9._-]+/', '', $base) ?: 'admin';
+        $base = substr($base, 0, 25);
+
+        if (strlen($base) < 3) {
+            $base = 'admin';
+        }
+
+        $candidate = $base;
+        $check     = $conn->prepare('SELECT COUNT(*) FROM `users` WHERE `username` = ?');
+
+        for ($suffix = 2; $suffix <= 20; $suffix++) {
+            $check->execute([$candidate]);
+
+            if ((int) $check->fetchColumn() === 0) {
+                return $candidate;
+            }
+
+            $candidate = substr($base, 0, 27) . '-' . $suffix;
+        }
+
+        return substr($base, 0, 24) . '-' . bin2hex(random_bytes(3));
+    }
+
+    /**
      * Check whether a table exists in the connected database.
      */
     private function tableExists(PDO $conn, string $table): bool
@@ -317,7 +358,7 @@ class ShieldAdapter implements AuthAdapterInterface
     private function ensureGroup(PDO $conn, string $alias, string $now): void
     {
         if (! $this->tableExists($conn, 'auth_groups')) {
-            throw new \RuntimeException('auth_groups table does not exist. Run migrations before the admin substep.');
+            throw new \RuntimeException('auth_groups table missing. Run migrations first.');
         }
 
         $stmt = $conn->prepare('SELECT COUNT(*) FROM auth_groups WHERE alias = ?');

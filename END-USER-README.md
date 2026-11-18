@@ -34,7 +34,7 @@ Navigate to `install.php` in your browser (e.g., `https://yourdomain.com/install
 
 **Configuration** -- confirm your base URL and environment setting. An encryption key is generated automatically.
 
-**Admin Account** -- create your first admin user. You'll set a username, email, and password. This account gets superadmin privileges.
+**Admin Account** -- create your first admin user. You'll set an email and password. This account gets superadmin privileges.
 
 **Install** -- the installer downloads Pubvana, extracts it, writes your `.env` file, runs database migrations, seeds initial data, and creates your admin account. Each step shows progress so you know what's happening.
 

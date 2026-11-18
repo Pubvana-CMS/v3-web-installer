@@ -11,6 +11,7 @@ class Result
         public readonly bool $success,
         public readonly string $errorMessage = '',
         public readonly mixed $content = null,
+        public readonly bool $retryable = false,
     ) {}
 
     public static function ok(mixed $content = null): self
@@ -21,5 +22,11 @@ class Result
     public static function fail(string $message): self
     {
         return new self(false, $message);
+    }
+
+    /** A temporary failure. Callers may retry the same operation. */
+    public static function retry(string $message): self
+    {
+        return new self(false, $message, null, true);
     }
 }

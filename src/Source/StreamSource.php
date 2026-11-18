@@ -34,7 +34,7 @@ class StreamSource implements SourceInterface
     public function download(string $targetDir): Result
     {
         if (!$this->canExecute()) {
-            return Result::fail('allow_url_fopen is disabled; cannot use stream-based download.');
+            return Result::fail('allow_url_fopen is disabled. Stream download unavailable.');
         }
 
         // --- 1. Download via file_get_contents ---
@@ -56,16 +56,16 @@ class StreamSource implements SourceInterface
 
         if ($data === false) {
             return Result::fail(
-                'file_get_contents() failed to download: ' . $this->zipUrl
-                . '. Check that the URL is reachable and allow_url_fopen is enabled.'
+                'Download failed: ' . $this->zipUrl
+                . '. Check the URL and allow_url_fopen.'
             );
         }
 
         // --- 2. Verify zip magic bytes (PK) ---
         if (substr($data, 0, 2) !== 'PK') {
             return Result::fail(
-                'Downloaded content does not appear to be a valid zip archive '
-                . '(missing PK magic bytes). The server may have returned an error page.'
+                'Downloaded content is not a valid zip. '
+                . 'The server may have returned an error page.'
             );
         }
 

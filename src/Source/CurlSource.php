@@ -34,7 +34,7 @@ class CurlSource implements SourceInterface
     public function download(string $targetDir): Result
     {
         if (!$this->canExecute()) {
-            return Result::fail('The cURL PHP extension is not available.');
+            return Result::fail('cURL extension not available.');
         }
 
         if (!is_dir($targetDir)) {
@@ -85,8 +85,8 @@ class CurlSource implements SourceInterface
         if ($magic !== 'PK') {
             @unlink($zipPath);
             return Result::fail(
-                'Downloaded file does not appear to be a valid zip archive '
-                . '(missing PK magic bytes). The server may have returned an error page.'
+                'Downloaded file is not a valid zip. '
+                . 'The server may have returned an error page.'
             );
         }
 

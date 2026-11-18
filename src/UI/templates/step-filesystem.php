@@ -27,9 +27,9 @@ $hasSsh2 = extension_loaded('ssh2');
             </svg>
         </div>
         <div>
-            <h3 class="text-lg font-semibold text-base-content">Direct File Access Available</h3>
+            <h3 class="text-lg font-semibold text-base-content">Direct file access available</h3>
             <p class="text-base-content/60 text-sm mt-1">
-                The web server runs as the file owner. No FTP or SSH credentials are needed.
+                Files are writable by the web server.
             </p>
         </div>
 
@@ -37,7 +37,7 @@ $hasSsh2 = extension_loaded('ssh2');
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            <span class="text-sm">Files can be written directly.</span>
+            <span class="text-sm">No credentials needed.</span>
         </div>
     </div>
 
@@ -74,7 +74,7 @@ $hasSsh2 = extension_loaded('ssh2');
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
-                <span>The web server does not appear to own the installation directory. Please provide FTP or SSH credentials to write files.</span>
+                <span>Installation directory is not writable. Use FTP or SSH credentials.</span>
             </div>
         <?php else: ?>
             <div class="alert alert-info mb-4">
@@ -82,8 +82,8 @@ $hasSsh2 = extension_loaded('ssh2');
                     <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
                 </svg>
                 <span>
-                    Detected filesystem method: <strong><?= htmlspecialchars(strtoupper($method), ENT_QUOTES, 'UTF-8') ?></strong>.
-                    Please confirm your credentials below.
+                    Detected: <strong><?= htmlspecialchars(strtoupper($method), ENT_QUOTES, 'UTF-8') ?></strong>.
+                    Confirm your credentials below.
                 </span>
             </div>
         <?php endif; ?>
@@ -116,10 +116,10 @@ $hasSsh2 = extension_loaded('ssh2');
                     const resp = await fetch('<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>', { method: 'POST', body: data });
                     const json = await resp.json();
                     this.testResult  = json.success ? 'success' : 'error';
-                    this.testMessage = json.message  ?? (json.success ? 'Connection successful!' : 'Connection failed.');
+                    this.testMessage = json.message  ?? (json.success ? 'Connected.' : 'Connection failed.');
                 } catch (e) {
                     this.testResult  = 'error';
-                    this.testMessage = 'Request failed. Please try the form submission instead.';
+                    this.testMessage = 'Request failed. Use the form instead.';
                 } finally {
                     this.testing = false;
                 }
@@ -133,7 +133,7 @@ $hasSsh2 = extension_loaded('ssh2');
             <!-- Connection type -->
             <div class="form-control mb-4">
                 <label class="label">
-                    <span class="label-text font-medium">Connection Type</span>
+                    <span class="label-text font-medium">Connection type</span>
                 </label>
                 <select
                     name="fs_type"
@@ -150,7 +150,7 @@ $hasSsh2 = extension_loaded('ssh2');
                         <option value="ssh2">SSH2 / SFTP</option>
                     <?php endif; ?>
                     <?php if (! $hasFtp && ! $hasFtps && ! $hasSsh2): ?>
-                        <option value="ftp">FTP (extension may not be available)</option>
+                        <option value="ftp">FTP (may be unavailable)</option>
                     <?php endif; ?>
                 </select>
             </div>
@@ -265,7 +265,7 @@ $hasSsh2 = extension_loaded('ssh2');
                         <svg x-show="!testing" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                         </svg>
-                        <span x-text="testing ? 'Testing\u2026' : 'Test Connection'"></span>
+                        <span x-text="testing ? 'Testing\u2026' : 'Test connection'"></span>
                     </button>
                 </div>
 

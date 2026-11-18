@@ -43,10 +43,10 @@ $prevUsername = $_POST['db_username'] ?? '';
                 const resp = await fetch('<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>', { method: 'POST', body: data });
                 const json = await resp.json();
                 this.testResult  = json.success ? 'success' : 'error';
-                this.testMessage = json.message  ?? (json.success ? 'Connection successful!' : 'Connection failed.');
+                this.testMessage = json.message  ?? (json.success ? 'Connected.' : 'Connection failed.');
             } catch (e) {
                 this.testResult  = 'error';
-                this.testMessage = 'Request failed. Please try the form submission instead.';
+                this.testMessage = 'Request failed. Use the form instead.';
             } finally {
                 this.testing = false;
             }
@@ -63,7 +63,7 @@ $prevUsername = $_POST['db_username'] ?? '';
                 const resp = await fetch('<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>', { method: 'POST', body: data });
                 const json = await resp.json();
                 this.createResult  = json.success ? 'success' : 'error';
-                this.createMessage = json.message  ?? (json.success ? 'Database created!' : 'Could not create database.');
+                this.createMessage = json.message  ?? (json.success ? 'Database created.' : 'Could not create database.');
             } catch (e) {
                 this.createResult  = 'error';
                 this.createMessage = 'Request failed.';
@@ -82,7 +82,7 @@ $prevUsername = $_POST['db_username'] ?? '';
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
                 </svg>
-                <span>Too many connection attempts. Please wait a few minutes before trying again.</span>
+                <span>Too many attempts. Wait a few minutes.</span>
             </div>
         <?php endif; ?>
 
@@ -98,7 +98,7 @@ $prevUsername = $_POST['db_username'] ?? '';
         <!-- Driver (v3 supports MySQL/MariaDB only) -->
         <div class="form-control mb-5">
             <label class="label" for="db_driver">
-                <span class="label-text font-medium">Database Driver</span>
+                <span class="label-text font-medium">Database driver</span>
             </label>
             <?php foreach ($availableDrivers as $drv): ?>
                 <input type="hidden" name="db_driver" value="<?= htmlspecialchars($drv, ENT_QUOTES, 'UTF-8') ?>">
@@ -154,7 +154,7 @@ $prevUsername = $_POST['db_username'] ?? '';
             <!-- Database name -->
             <div class="form-control mb-4">
                 <label class="label" for="db_database">
-                    <span class="label-text font-medium">Database Name <span class="text-error">*</span></span>
+                    <span class="label-text font-medium">Database name <span class="text-error">*</span></span>
                 </label>
                 <input
                     type="text"
@@ -227,7 +227,7 @@ $prevUsername = $_POST['db_username'] ?? '';
                     x-show="testMessage.toLowerCase().includes('does not exist') || testMessage.toLowerCase().includes('unknown database')"
                 >
                     <span x-show="creating" class="loading loading-spinner loading-xs"></span>
-                    Create Database
+                    Create database
                 </button>
             </div>
         </template>
@@ -272,7 +272,7 @@ $prevUsername = $_POST['db_username'] ?? '';
                     <svg x-show="!testing" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 6 0m-6 0H3.375A1.875 1.875 0 0 1 1.5 12.375V7.5A1.875 1.875 0 0 1 3.375 5.625h17.25A1.875 1.875 0 0 1 22.5 7.5v4.875A1.875 1.875 0 0 1 20.625 14.25H18m-13.5 0v4.125c0 .621.504 1.125 1.125 1.125H18m0-5.25v4.125c0 .621-.504 1.125-1.125 1.125H5.625" />
                     </svg>
-                    <span x-text="testing ? 'Testing\u2026' : 'Test Connection'"></span>
+                    <span x-text="testing ? 'Testing\u2026' : 'Test connection'"></span>
                 </button>
             </div>
 

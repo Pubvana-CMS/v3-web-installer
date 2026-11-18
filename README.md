@@ -119,7 +119,7 @@ Controls admin user creation during installation.
 | Key | Type | Required | Description |
 |-----|------|----------|-------------|
 | `system` | string | No (default: `'none'`) | Auth library. Options: `shield`, `custom`, `none`. |
-| `collect` | array | If system is not `none` | Fields to show in the wizard. Example: `['username', 'email', 'password']` |
+| `collect` | array | If system is not `none` | Fields to show in the wizard. Example: `['email', 'password']` |
 | `group` | string | For shield | Group or role to assign the admin. Example: `'superadmin'` |
 
 **For `custom` auth systems**, additional keys are required:
@@ -202,6 +202,16 @@ Each substep runs as a separate AJAX request to manage execution time on shared 
 - Deletes `install.php` (creates `install.lock` as fallback if delete fails)
 - Removes temporary extraction directory
 - Redirects to your application
+
+### Resuming an interrupted installation
+
+The installer writes each finished substep to `.installer-progress.json` next to `install.php`. The file holds step names only.
+
+- Reload continues from the first unfinished step.
+- A step that outlives the request timeout reports "still working" and retries. Migrations resume from the database.
+- An expired session reads database and site URL from the installed `.env`. Enter administrator details again on the Admin Account step.
+- An existing administrator account skips creation.
+- `install.php` deletes the progress file on completion.
 
 ---
 
@@ -336,12 +346,12 @@ The installer supports three auth systems:
 ```php
 'auth' => [
     'system'  => 'shield',
-    'collect' => ['username', 'email', 'password'],
+    'collect' => ['email', 'password'],
     'group'   => 'superadmin',
 ],
 ```
 
-Creates the admin user via direct SQL inserts into Shield's `users`, `auth_identities`, and `auth_groups_users` tables.
+Creates the admin user through Shield's `UserManagement` service, with direct SQL inserts as a fallback. Shield derives the username from the email address.
 
 ### Generic (Custom Auth)
 
@@ -493,6 +503,6 @@ You are free to use, modify, and distribute this software for any purpose, inclu
 
 ## Contributing
 
-Contributions are welcome. Please open an issue to discuss proposed changes before submitting a pull request.
+Contributions are welcome. Open an issue before submitting a pull request.
 
 [Report an issue](https://github.com/enlivenapp/CodeIgniter4-Flexible-Web-App-Installer/issues)

@@ -6,23 +6,28 @@ use PubvanaInstaller\Result;
 use Throwable;
 
 /**
- * Triggers the installed Pubvana application's own first-run setup.
+ * Triggers the application's first-run setup.
  *
  * v3 self-installs: with a valid .env and no `.migrations_installed` marker,
  * the application's first HTTP request runs every migration tier (foundation,
  * core, enabled plugins) plus their seeds during bootstrap
- * (PluginLoader::loadPlugins()). This runner makes that first request, polls
- * for the marker file the app writes, then does a final render check.
+ * (PluginLoader::loadPlugins()). This runner makes that first request, then
+ * asks for an admin URL because admin requests check for pending migrations
+ * even after the marker exists.
  *
- * No exec() is used anywhere: the migrations run inside the application's own
- * web request, so shared-hosting hosts that disable shell access are fine.
+ * Each call makes short requests. An unfinished run is retryable and resumes
+ * from the tracking table.
+ *
+ * No exec() call. Migrations run inside the application's web request, so
+ * shared hosting without shell access works.
  */
 class MigrationRunner
 {
-    private const MAX_ATTEMPTS   = 6;
-    private const RETRY_DELAY_S  = 2;
-    private const BOOT_TIMEOUT   = 120;
-    private const RENDER_TIMEOUT = 30;
+    /** Timeout for a request that may be running migrations. */
+    private const PROBE_TIMEOUT = 15;
+
+    /** Timeout for the render check after migrations. */
+    private const RENDER_TIMEOUT = 10;
 
     /** Absolute path to the root of the installed v3 application. */
     private string $appRoot;
@@ -37,56 +42,48 @@ class MigrationRunner
     }
 
     /**
-     * Boots the application until it has installed itself, then verifies it
-     * renders. Returns ok() once the marker file exists and the site responds.
+     * Runs one round of the application's setup.
+     *
+     * Returns ok() when the marker exists and the site renders, retry() when
+     * work is unfinished, and fail() on a server error.
      */
     public function runMigrations(): Result
     {
         $marker = $this->appRoot . DIRECTORY_SEPARATOR . '.migrations_installed';
 
-        // The app runs migrations on public requests only while the marker is
-        // missing, so keep booting (each request resumes the work) until either
-        // the marker appears or we run out of attempts.
-        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
-            if (file_exists($marker)) {
-                break;
-            }
-
-            $this->request($this->siteUrl, self::BOOT_TIMEOUT);
-
-            if (file_exists($marker)) {
-                break;
-            }
-
-            if ($attempt < self::MAX_ATTEMPTS) {
-                sleep(self::RETRY_DELAY_S);
-            }
-        }
+        // Run the app's first boot. A long run continues on the next call.
+        $this->request($this->siteUrl, self::PROBE_TIMEOUT);
 
         if (! file_exists($marker)) {
-            return Result::fail(
-                'The application did not complete its first-run setup. '
-                . 'Visit ' . $this->siteUrl . ' in your browser once to trigger it, '
-                . 'then retry this step. If it still fails, check the database '
-                . 'credentials from the earlier steps and the application error log.'
-            );
+            return Result::retry('Setting up the database. This can take a few minutes.');
         }
 
-        // Render check: a second request with a normal HTTP status confirms the
-        // site is usable after the migration tiers ran. A 5xx means the app is
-        // booting but something in schema/style failed.
+        // The app writes the marker before migrations finish. Admin requests
+        // check pending migrations, which finishes an interrupted run.
+        $this->request($this->adminUrl(), self::PROBE_TIMEOUT);
+
         $status = $this->request($this->siteUrl, self::RENDER_TIMEOUT);
+
+        if ($status === 0) {
+            return Result::retry('Site did not respond. Retrying.');
+        }
 
         if ($status >= 500) {
             return Result::fail(
-                'The database was set up, but the application is returning an '
-                . 'error response. Check the application error log and the '
-                . 'database credentials, then visit ' . $this->siteUrl
-                . ' in your browser and retry this step.'
+                'Site returns HTTP ' . $status . '. Check the error log and '
+                . 'database credentials, then retry.'
             );
         }
 
-        return Result::ok('Migrations and seeds were applied by the application on its first boot.');
+        return Result::ok('Migrations and seeds applied.');
+    }
+
+    /**
+     * URL whose requests always check for pending migrations.
+     */
+    private function adminUrl(): string
+    {
+        return $this->siteUrl . 'admin/';
     }
 
     /**
@@ -105,6 +102,8 @@ class MigrationRunner
 
     /**
      * cURL-backed request helper.
+     *
+     * Skips certificate checks. The request carries no credentials.
      */
     private function curlRequest(string $url, int $timeout): int
     {
@@ -117,11 +116,11 @@ class MigrationRunner
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $timeout,
-            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 3,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_USERAGENT      => 'Pubvana-Installer/1.0',
         ]);
 
@@ -153,8 +152,8 @@ class MigrationRunner
                 'user_agent'      => 'Pubvana-Installer/1.0',
             ],
             'ssl' => [
-                'verify_peer'      => true,
-                'verify_peer_name' => true,
+                'verify_peer'      => false,
+                'verify_peer_name' => false,
             ],
         ]);
 

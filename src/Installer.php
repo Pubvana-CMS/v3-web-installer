@@ -32,7 +32,7 @@ use Throwable;
  */
 class Installer
 {
-    /** Where install.php and installer-config.php live (the wizard's own folder). */
+    /** Where install.php and installer-config.php live (the wizard folder). */
     private string $scriptDir;
 
     /** Where the application source gets downloaded, extracted and installed to. */
@@ -72,6 +72,10 @@ class Installer
     private const SESS_APP_SETTINGS  = 'pubvana_installer_app_settings';
     private const SESS_ADMIN         = 'pubvana_installer_admin';
     private const SESS_SUBSTEPS      = 'pubvana_installer_substeps';
+    private const SESS_ERRORS        = 'pubvana_installer_errors';
+
+    /** Completed substeps from the previous attempt. Step names only. */
+    private const PROGRESS_FILE = '.installer-progress.json';
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -140,7 +144,7 @@ class Installer
     /**
      * Resolve the absolute install target from an explicit path or config.
      *
-     * Absolute path → used as-is. Empty string → the wizard's own folder.
+     * Absolute path → used as-is. Empty string → the wizard folder.
      * Relative path → resolved against the wizard folder (so '../' = parent).
      */
     private function resolveTargetDir(?string $explicit): string
@@ -225,10 +229,14 @@ class Installer
             if (! $this->renderer->validateCsrf($token)) {
                 // For AJAX substep requests return JSON; otherwise show error page.
                 if ($this->isAjaxSubstepRequest()) {
-                    $this->jsonResponse(['success' => false, 'message' => 'CSRF token invalid. Please refresh and try again.']);
+                    $this->jsonResponse([
+                        'success'      => false,
+                        'csrf_invalid' => true,
+                        'message'      => 'Session expired. Reload the page.',
+                    ]);
                     return;
                 }
-                $this->die('Security Error', 'CSRF token invalid or missing. Please go back and try again.');
+                $this->die('Session expired', 'Reload the page to continue.');
             }
         }
 
@@ -354,7 +362,7 @@ class Installer
                 };
 
                 if ($driver === null) {
-                    $error = 'Unknown filesystem method selected.';
+                    $error = 'Unknown filesystem method.';
                 } else {
                     // Test the driver by checking if the target dir exists.
                     if ($driver->exists($this->targetDir)) {
@@ -368,7 +376,7 @@ class Installer
                         $this->fs = $driver;
                         $this->redirect('database');
                     } else {
-                        $error = "Connection succeeded but target directory is not accessible: {$this->targetDir}";
+                        $error = "Connection succeeded. Target directory not accessible: {$this->targetDir}";
                     }
                 }
             } catch (Throwable $e) {
@@ -423,7 +431,7 @@ class Installer
             if ($action === 'create_database') {
                 $result = $tester->createDatabase($driver, $creds);
                 if ($result->success) {
-                    $success = $result->content ?: "Database created successfully.";
+                    $success = $result->content ?: "Database created.";
                     // Now test the connection for real.
                     $testResult = $tester->test($driver, $creds);
                     if ($testResult->success) {
@@ -444,7 +452,7 @@ class Installer
 
                     // AJAX test: return JSON. Form submit: redirect to next step.
                     if ($action === 'test_database') {
-                        $this->jsonResponse(['success' => true, 'message' => 'Connection successful.']);
+                        $this->jsonResponse(['success' => true, 'message' => 'Connected.']);
                         return null;
                     }
                     $this->redirect('configuration');
@@ -502,7 +510,7 @@ class Installer
             if ($baseUrl === '') {
                 $error = 'Base URL is required.';
             } elseif (! filter_var($baseUrl, FILTER_VALIDATE_URL)) {
-                $error = 'Base URL does not appear to be a valid URL.';
+                $error = 'Base URL is not valid.';
             } elseif (! preg_match('/^[0-9a-fA-F]{64}$/', $encryptionKey)) {
                 $error = 'Session encryption key must be 64 hexadecimal characters.';
             }
@@ -582,7 +590,7 @@ class Installer
             }
 
             if ($error === null && ! empty($missingRequired)) {
-                $error = 'The following fields are required: ' . implode(', ', $missingRequired);
+                $error = 'Required fields: ' . implode(', ', $missingRequired);
             }
 
             if ($error === null) {
@@ -617,6 +625,11 @@ class Installer
         }
 
         $dbCreds = $this->getFromSession(self::SESS_DB_CREDS, []);
+
+        if (empty($dbCreds)) {
+            $dbCreds = $this->dbCredentialsFromEnv();
+        }
+
         $adapter = AuthAdapterFactory::create($this->config, $this->targetDir, $dbCreds);
         $fields  = $adapter->getFields();
         $error   = null;
@@ -667,7 +680,7 @@ class Installer
             }
 
             if ($error === null && ! empty($missing)) {
-                $error = 'The following fields are required: ' . implode(', ', $missing);
+                $error = 'Required fields: ' . implode(', ', $missing);
             }
 
             if ($error === null) {
@@ -705,8 +718,8 @@ class Installer
             // AJAX substep execution.
             @set_time_limit(300);
 
-            // Buffer output. The runway CLI can echo stray text that would
-            // corrupt the JSON response.
+            // Buffer output. Substep handlers can echo stray text (warnings,
+            // notices) that would corrupt the JSON response.
             ob_start();
 
             try {
@@ -718,6 +731,7 @@ class Installer
                     'write_env'   => $this->substepWriteEnv(),
                     'permissions' => $this->substepPermissions(),
                     'migrations'  => $this->substepMigrations(),
+                    'site_settings' => $this->substepSiteSettings(),
                     'admin'       => $this->substepAdmin(),
                     default       => ['success' => false, 'message' => "Unknown substep: {$substep}"],
                 };
@@ -735,20 +749,50 @@ class Installer
                 $result['message'] = ($result['message'] ?? 'Unknown error.') . "\n\n" . $strayOutput;
             }
 
-            // Mark completion in session so the UI can track status.
+            // Record completion in the session and on disk.
             if (! empty($result['success'])) {
-                $completed = $this->getFromSession(self::SESS_SUBSTEPS, []);
+                $completed = $this->completedSubsteps();
                 $completed[$substep] = true;
                 $this->saveToSession(self::SESS_SUBSTEPS, $completed);
+                $this->saveCompletedProgress($completed);
+            }
+
+            // The no-JavaScript form expects a page back.
+            if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'XMLHttpRequest') {
+                if (empty($result['success'])) {
+                    $this->saveToSession(self::SESS_ERRORS, [
+                        (string) $substep => (string) ($result['message'] ?? 'The step failed.'),
+                    ]);
+                } else {
+                    $this->saveToSession(self::SESS_ERRORS, []);
+                }
+
+                $this->redirect('install');
             }
 
             $this->jsonResponse($result);
             return null;
         }
 
+        // Send the user to the admin step when its details are missing.
+        if (($this->config['auth']['system'] ?? 'none') !== 'none') {
+            $completed = $this->completedSubsteps();
+
+            if (
+                empty($this->getFromSession(self::SESS_ADMIN, []))
+                && empty($completed['admin'])
+                && ! $this->adminAccountExists()
+            ) {
+                $this->redirect('admin');
+                return null;
+            }
+        }
+
         // Render the install progress page.
         return $this->renderer->render('install', [
             'substeps'   => $this->buildSubstepList(),
+            'completed'  => $this->completedSubsteps(),
+            'errors'     => $this->getFromSession(self::SESS_ERRORS, []),
             'csrfToken'  => $this->renderer->getCsrfToken(),
         ]);
     }
@@ -825,8 +869,8 @@ class Installer
     private function substepDownload(): array
     {
         // State recovery: if key files already present, skip.
-        if (file_exists($this->targetDir . '/runway') && is_dir($this->targetDir . '/app')) {
-            return ['success' => true, 'message' => 'Skipped. The step is already complete.'];
+        if (file_exists($this->targetDir . '/public/index.php') && is_dir($this->targetDir . '/app')) {
+            return ['success' => true, 'message' => 'Skipped. Already Completed.'];
         }
 
         $env     = $this->getServerEnvironment();
@@ -881,14 +925,14 @@ class Installer
         $installDir = $this->targetDir;
 
         if (! is_dir($installDir)) {
-            return ['success' => false, 'message' => 'No downloaded source found. Please re-run the download step.'];
+            return ['success' => false, 'message' => 'No downloaded source. Re-run the download step.'];
         }
 
         // State recovery: if key app files already exist, extraction is done.
-        if (file_exists($installDir . '/runway') && is_dir($installDir . '/app')) {
+        if (file_exists($installDir . '/public/index.php') && is_dir($installDir . '/app')) {
             // Normalize nested directory if needed.
             $this->normalizeDirectory($installDir);
-            return ['success' => true, 'message' => 'Skipped. The step is already complete.'];
+            return ['success' => true, 'message' => 'Skipped. Already Completed.'];
         }
 
         // The source's download() may return a zip path; in that case we need to extract.
@@ -908,7 +952,7 @@ class Installer
         // Normalize nested directory structure (GitHub-style archives create a subdirectory).
         $normalized = $this->normalizeDirectory($installDir);
 
-        return ['success' => true, 'message' => $normalized ? 'Extracted and normalized.' : 'Extracted successfully.'];
+        return ['success' => true, 'message' => $normalized ? 'Extracted and normalized.' : 'Extracted.'];
     }
 
     /**
@@ -919,24 +963,20 @@ class Installer
         $installDir = $this->targetDir;
 
         if (! is_dir($installDir)) {
-            return ['success' => false, 'message' => 'Source directory not found. Please re-run the download step.'];
+            return ['success' => false, 'message' => 'Source directory not found. Re-run the download step.'];
         }
 
         // State recovery.
         if (
             file_exists($installDir . '/vendor/autoload.php')
-            && file_exists($installDir . '/runway')
             && file_exists($installDir . '/public/index.php')
+            && file_exists($installDir . '/app/config/services.php')
         ) {
-            return ['success' => true, 'message' => 'Skipped. The step is already complete.'];
+            return ['success' => true, 'message' => 'Skipped. Already Completed.'];
         }
 
         // Check for required files.
         $missing = [];
-
-        if (! file_exists($installDir . '/runway')) {
-            $missing[] = 'runway';
-        }
 
         if (! file_exists($installDir . '/public/index.php')) {
             $missing[] = 'public/index.php';
@@ -950,7 +990,7 @@ class Installer
             return [
                 'success' => false,
                 'message' => 'Downloaded source is incomplete. Missing: ' . implode(', ', $missing)
-                    . '. Ensure your source package is a valid Pubvana CMS v3 application.',
+                    . ' Use a valid Pubvana CMS v3 release package.',
             ];
         }
 
@@ -959,17 +999,17 @@ class Installer
             return [
                 'success' => false,
                 'message' => 'vendor/autoload.php is missing. '
-                    . 'The release package must include the vendor directory.',
+                    . 'The release package must include vendor/.',
             ];
         }
 
-        return ['success' => true, 'message' => 'Validation complete. All required files are present.'];
+        return ['success' => true, 'message' => 'Validation complete.'];
     }
 
     /**
      * 4d. Handle the public/ directory convention.
      *
-     * The v3 release package ships a root .htaccess that routes to public/,
+     * The v3 release package includes a root .htaccess that routes to public/,
      * so the default handling is 'none'. When 'htaccess' is requested, write
      * a fallback root .htaccess plus deny rules for sensitive directories.
      */
@@ -983,9 +1023,9 @@ class Installer
 
         $handling = $this->config['public_dir_handling'] ?? 'none';
 
-        // If there is no public/ directory, there is nothing to handle.
+        // Skip when public/ is absent.
         if (! is_dir($installDir . '/public')) {
-            return ['success' => true, 'message' => 'No public/ directory found. There is nothing to restructure.'];
+            return ['success' => true, 'message' => 'No public/ directory.'];
         }
 
         switch ($handling) {
@@ -999,13 +1039,13 @@ class Installer
             case 'auto':
                 // Prefer 'none' when a root .htaccess is already present.
                 if (file_exists($installDir . '/.htaccess')) {
-                    return ['success' => true, 'message' => 'Root .htaccess is already present. No changes are needed.'];
+                    return ['success' => true, 'message' => 'Root .htaccess is already present.'];
                 }
                 return $this->strategyHtaccess($installDir, $this->getServerEnvironment());
 
             case 'none':
             default:
-                return ['success' => true, 'message' => 'Skipped. The app ships its own routing rules.'];
+                return ['success' => true, 'message' => 'Skipped. The app includes its routing rules.'];
         }
     }
 
@@ -1022,8 +1062,8 @@ class Installer
             $this->saveToSession('nginx_conf_instructions', $nginxConf);
             return [
                 'success' => true,
-                'message' => 'Nginx detected. Manual server configuration is required. Instructions have been saved.',
-                'warning' => 'Nginx cannot be configured automatically. Please apply the Nginx config shown in the UI.',
+                'message' => 'Nginx detected. Apply the config below.',
+                'warning' => 'Nginx needs manual configuration.',
                 'requires_manual' => true,
                 'manual_type'     => 'nginx',
                 'manual_config'   => $nginxConf,
@@ -1036,7 +1076,7 @@ class Installer
             if (@file_put_contents($webConfigPath, $webConfig) === false) {
                 return ['success' => false, 'message' => 'Failed to write web.config for IIS.'];
             }
-            return ['success' => true, 'message' => 'web.config written for IIS URL Rewrite.'];
+            return ['success' => true, 'message' => 'web.config written.'];
         }
 
         // Apache / LiteSpeed.
@@ -1072,7 +1112,7 @@ class Installer
             }
         }
 
-        return ['success' => true, 'message' => 'Root .htaccess written to route all requests to public/index.php.'];
+        return ['success' => true, 'message' => 'Root .htaccess written.'];
     }
 
     /**
@@ -1091,7 +1131,7 @@ class Installer
         if (file_exists($envPath)) {
             $existing = @file_get_contents($envPath);
             if ($existing !== false && str_contains($existing, 'Pubvana Installer')) {
-                return ['success' => true, 'message' => 'Skipped. The .env file already exists.'];
+                return ['success' => true, 'message' => 'Skipped. .env exists.'];
             }
         }
 
@@ -1157,7 +1197,7 @@ class Installer
             ];
         }
 
-        return ['success' => true, 'message' => '.env file written successfully.'];
+        return ['success' => true, 'message' => '.env written.'];
     }
 
     /**
@@ -1194,7 +1234,7 @@ class Installer
             $chmodResult = $fs->chmod($absPath, $permissions);
             if (! $chmodResult->success) {
                 // Non-fatal on Windows or when using FTP drivers that don't support chmod.
-                $errors[] = "Warning: could not chmod {$relPath}: " . $chmodResult->errorMessage;
+                $errors[] = "Warning: chmod failed for {$relPath}: " . $chmodResult->errorMessage;
             }
             $this->chmodRecursive($fs, $absPath, $permissions, $errors, $relPath);
         }
@@ -1237,7 +1277,7 @@ class Installer
 
             $chmodResult = $fs->chmod($absChild, $permissions);
             if (! $chmodResult->success) {
-                $errors[] = "Warning: could not chmod {$relChild}: " . $chmodResult->errorMessage;
+                $errors[] = "Warning: chmod failed for {$relChild}: " . $chmodResult->errorMessage;
             }
 
             $this->chmodRecursive($fs, $absChild, $permissions, $errors, $relChild);
@@ -1256,7 +1296,7 @@ class Installer
     private function substepMigrations(): array
     {
         if (! ($this->config['post_install']['migrate'] ?? true)) {
-            return ['success' => true, 'message' => 'Skipped. Migrations are disabled in the config.'];
+            return ['success' => true, 'message' => 'Skipped. Migrations disabled.'];
         }
 
         $installDir = $this->targetDir;
@@ -1266,22 +1306,123 @@ class Installer
         }
 
         $configuration = $this->getFromSession(self::SESS_CONFIGURATION, []);
-        $siteUrl       = $configuration['base_url'] ?? rtrim($this->detectBaseUrl(), '/') . '/';
+        $siteUrl       = $configuration['base_url'] ?? '';
+
+        if ($siteUrl === '') {
+            $siteUrl = $this->envValue('SITE_URL') ?? rtrim($this->detectBaseUrl(), '/') . '/';
+        }
 
         $runner = new MigrationRunner($installDir, $siteUrl);
 
         $result = $runner->runMigrations();
 
         if ($result->success) {
-            return ['success' => true, 'message' => $result->content ?? 'Migrations and seeds applied successfully.'];
+            return ['success' => true, 'message' => $result->content ?? 'Migrations and seeds applied.'];
+        }
+
+        // Report a still-running step as retryable.
+        if ($result->retryable) {
+            return [
+                'success' => false,
+                'retry'   => true,
+                'message' => $result->errorMessage,
+            ];
         }
 
         return [
             'success' => false,
             'message' => 'Migrations failed: ' . $result->errorMessage
-                . ' You can also run `php runway migrate:all` from the site directory via SSH, '
-                . 'then retry this step.',
+                . ' Run `php pubvana migrate:all` in the site directory, then retry.',
         ];
+    }
+
+    /**
+     * 4h. Write the site name and admin email into the settings table.
+     *
+     * The application seeds CMS.siteName and CMS.adminEmail with literals and
+     * never reads them from the environment, so the values collected in the
+     * wizard must be written here.
+     */
+    private function substepSiteSettings(): array
+    {
+        $appSettings = $this->getFromSession(self::SESS_APP_SETTINGS, []);
+        $siteName    = trim((string) ($appSettings['SITE_NAME'] ?? ''));
+        $adminEmail  = trim((string) ($appSettings['ADMIN_EMAIL'] ?? ''));
+
+        $values = [];
+
+        if ($siteName !== '') {
+            $values['CMS.siteName'] = $siteName;
+        }
+
+        if ($adminEmail !== '') {
+            $values['CMS.adminEmail'] = $adminEmail;
+        }
+
+        if ($values === []) {
+            return ['success' => true, 'message' => 'Skipped. No site settings.'];
+        }
+
+        $dbCreds = $this->getFromSession(self::SESS_DB_CREDS, []);
+
+        if (empty($dbCreds)) {
+            $dbCreds = $this->dbCredentialsFromEnv();
+        }
+
+        $database = (string) ($dbCreds['database'] ?? '');
+
+        if ($database === '') {
+            return ['success' => false, 'message' => 'Database credentials missing.'];
+        }
+
+        try {
+            $pdo = new \PDO(
+                sprintf(
+                    'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
+                    (string) ($dbCreds['hostname'] ?? '127.0.0.1'),
+                    (int) ($dbCreds['port'] ?? 3306),
+                    $database,
+                ),
+                (string) ($dbCreds['username'] ?? ''),
+                (string) ($dbCreds['password'] ?? ''),
+                [
+                    \PDO::ATTR_ERRMODE            => \PDO::ERRMODE_EXCEPTION,
+                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                ],
+            );
+
+            $exists = $pdo->query(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                . "WHERE table_schema = DATABASE() AND table_name = 'settings'"
+            )->fetchColumn();
+
+            if ((int) $exists === 0) {
+                return ['success' => false, 'message' => 'Settings table missing. Run migrations first.'];
+            }
+
+            $now = date('Y-m-d H:i:s');
+
+            $find = $pdo->prepare('SELECT COUNT(*) FROM `settings` WHERE `key` = ?');
+            $update = $pdo->prepare('UPDATE `settings` SET `value` = ?, `updated_at` = ? WHERE `key` = ?');
+            $insert = $pdo->prepare(
+                'INSERT INTO `settings` (`key`, `value`, `type`, `autoload`, `created_at`, `updated_at`) '
+                . 'VALUES (?, ?, ?, 1, ?, ?)'
+            );
+
+            foreach ($values as $key => $value) {
+                $find->execute([$key]);
+
+                if ((int) $find->fetchColumn() > 0) {
+                    $update->execute([$value, $now, $key]);
+                } else {
+                    $insert->execute([$key, $value, 'string', $now, $now]);
+                }
+            }
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Settings update failed: ' . $e->getMessage()];
+        }
+
+        return ['success' => true, 'message' => 'Site settings updated.'];
     }
 
     /**
@@ -1292,15 +1433,15 @@ class Installer
         $authSystem = $this->config['auth']['system'] ?? 'none';
 
         if ($authSystem === 'none') {
-            return ['success' => true, 'message' => 'Skipped. No auth system is configured.'];
+            return ['success' => true, 'message' => 'Skipped. No auth system.'];
         }
 
         $installDir  = $this->targetDir;
         $adminData   = $this->getFromSession(self::SESS_ADMIN, []);
         $dbCreds     = $this->getFromSession(self::SESS_DB_CREDS, []);
 
-        if (empty($adminData)) {
-            return ['success' => false, 'message' => 'Admin credentials not found in session. Please complete the admin step.'];
+        if (empty($dbCreds)) {
+            $dbCreds = $this->dbCredentialsFromEnv();
         }
 
         if ($installDir === null || ! is_dir($installDir)) {
@@ -1309,15 +1450,29 @@ class Installer
 
         try {
             $adapter = AuthAdapterFactory::create($this->config, $installDir, $dbCreds);
-            $result  = $adapter->createAdmin($adminData);
+
+            // Skip creation when an account exists.
+            if ($adapter->hasAdmin()) {
+                return ['success' => true, 'message' => 'Administrator account exists.'];
+            }
+
+            if (empty($adminData)) {
+                return [
+                    'success'     => false,
+                    'needs_admin' => true,
+                    'message'     => 'Administrator details missing. Enter them again.',
+                ];
+            }
+
+            $result = $adapter->createAdmin($adminData);
 
             if ($result->success) {
-                return ['success' => true, 'message' => $result->content ?? 'Admin user created successfully.'];
+                return ['success' => true, 'message' => $result->content ?? 'Administrator created.'];
             }
 
             return ['success' => false, 'message' => $result->errorMessage];
         } catch (Throwable $e) {
-            return ['success' => false, 'message' => 'Admin creation failed: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'Administrator creation failed: ' . $e->getMessage()];
         }
     }
 
@@ -1335,7 +1490,7 @@ class Installer
                 UPLOAD_ERR_FORM_SIZE  => 'File exceeds the form size limit.',
                 UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded.',
                 UPLOAD_ERR_NO_FILE    => 'No file was uploaded.',
-                UPLOAD_ERR_NO_TMP_DIR => 'Server missing temporary folder.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server temporary folder missing.',
                 UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
                 UPLOAD_ERR_EXTENSION  => 'Upload blocked by a PHP extension.',
             ];
@@ -1366,9 +1521,10 @@ class Installer
         }
 
         // Mark download as complete so the install flow continues from extract.
-        $completed = $this->getFromSession(self::SESS_SUBSTEPS, []);
+        $completed = $this->completedSubsteps();
         $completed['download'] = true;
         $this->saveToSession(self::SESS_SUBSTEPS, $completed);
+        $this->saveCompletedProgress($completed);
 
         $this->jsonResponse(['success' => true, 'message' => 'Upload received.']);
     }
@@ -1394,6 +1550,163 @@ class Installer
     }
 
     /**
+     * Path of the on-disk progress file.
+     */
+    private function progressFile(): string
+    {
+        return $this->scriptDir . '/' . self::PROGRESS_FILE;
+    }
+
+    /**
+     * Completed substeps from the progress file.
+     *
+     * @return array<string, bool>
+     */
+    private function readCompletedProgress(): array
+    {
+        $file = $this->progressFile();
+
+        if (! is_file($file)) {
+            return [];
+        }
+
+        $raw = @file_get_contents($file);
+
+        if ($raw === false || $raw === '') {
+            return [];
+        }
+
+        $data = json_decode($raw, true);
+
+        return is_array($data) ? array_filter($data, 'is_bool') : [];
+    }
+
+    /**
+     * Write completed substeps. Write failures are ignored.
+     *
+     * @param array<string, bool> $completed
+     */
+    private function saveCompletedProgress(array $completed): void
+    {
+        $json = json_encode($completed, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        if ($json === false) {
+            return;
+        }
+
+        @file_put_contents($this->progressFile(), $json, LOCK_EX);
+    }
+
+    /**
+     * Completed substeps from disk and session combined.
+     *
+     * @return array<string, bool>
+     */
+    private function completedSubsteps(): array
+    {
+        return $this->readCompletedProgress() + $this->getFromSession(self::SESS_SUBSTEPS, []);
+    }
+
+    /** Read a key from the installed .env file. */
+    private function envValue(string $key): ?string
+    {
+        $path = $this->targetDir . '/.env';
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $contents = @file_get_contents($path);
+
+        if ($contents === false) {
+            return null;
+        }
+
+        foreach (preg_split('/\r\n|\r|\n/', $contents) ?: [] as $line) {
+            $line = trim($line);
+
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+
+            [$name, $value] = array_pad(explode('=', $line, 2), 2, '');
+
+            if (trim($name) !== $key) {
+                continue;
+            }
+
+            $value = trim($value);
+
+            if (
+                strlen($value) >= 2
+                && ($value[0] === '"' || $value[0] === "'")
+                && str_ends_with($value, $value[0])
+            ) {
+                $value = substr($value, 1, -1);
+
+                // EnvWriter escapes backslashes and double quotes.
+                $value = str_replace(['\\\\', '\\"'], ['\\', '"'], $value);
+            }
+
+            return $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Reads database credentials from the installed .env file.
+     *
+     * @return array<string, string>
+     */
+    private function dbCredentialsFromEnv(): array
+    {
+        $map = [
+            'hostname' => 'DB_HOST',
+            'port'     => 'DB_PORT',
+            'database' => 'DB_NAME',
+            'username' => 'DB_USER',
+            'password' => 'DB_PASS',
+        ];
+
+        $credentials = [];
+
+        foreach ($map as $key => $envKey) {
+            $value = $this->envValue($envKey);
+
+            if ($value !== null && $value !== '') {
+                $credentials[$key] = $value;
+            }
+        }
+
+        return $credentials;
+    }
+
+    /** Reports whether an administrator exists. */
+    private function adminAccountExists(): bool
+    {
+        if (($this->config['auth']['system'] ?? 'none') === 'none') {
+            return true;
+        }
+
+        $dbCreds = $this->getFromSession(self::SESS_DB_CREDS, []);
+
+        if (empty($dbCreds)) {
+            $dbCreds = $this->dbCredentialsFromEnv();
+        }
+
+        if (empty($dbCreds)) {
+            return false;
+        }
+
+        try {
+            return AuthAdapterFactory::create($this->config, $this->targetDir, $dbCreds)->hasAdmin();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Clear all installer-specific session data.
      */
     private function clearInstallSession(): void
@@ -1408,6 +1721,7 @@ class Installer
             self::SESS_APP_SETTINGS,
             self::SESS_ADMIN,
             self::SESS_SUBSTEPS,
+            self::SESS_ERRORS,
             'csrf_token',
             'pubvana_installer_db_attempts',
             'nginx_conf_instructions',
@@ -1416,6 +1730,8 @@ class Installer
         foreach ($keys as $key) {
             unset($_SESSION[$key]);
         }
+
+        @unlink($this->progressFile());
     }
 
     /**
@@ -1543,17 +1859,18 @@ class Installer
      */
     private function buildSubstepList(): array
     {
-        $completed = $this->getFromSession(self::SESS_SUBSTEPS, []);
+        $completed = $this->completedSubsteps();
 
         $substeps = [
-            ['key' => 'download',    'label' => 'Download Application'],
-            ['key' => 'extract',     'label' => 'Extract Files'],
-            ['key' => 'validate',    'label' => 'Validate Source'],
-            ['key' => 'public_dir',  'label' => 'Configure Public Directory'],
-            ['key' => 'write_env',   'label' => 'Write .env Configuration'],
-            ['key' => 'permissions', 'label' => 'Set File Permissions'],
-            ['key' => 'migrations',  'label' => 'Run Migrations & Seeds'],
-            ['key' => 'admin',       'label' => 'Create Admin Account'],
+            ['key' => 'download',    'label' => 'Download application'],
+            ['key' => 'extract',     'label' => 'Extract files'],
+            ['key' => 'validate',    'label' => 'Validate source'],
+            ['key' => 'public_dir',  'label' => 'Configure public directory'],
+            ['key' => 'write_env',   'label' => 'Write .env'],
+            ['key' => 'permissions', 'label' => 'Set file permissions'],
+            ['key' => 'migrations',  'label' => 'Run migrations and seeds'],
+            ['key' => 'site_settings', 'label' => 'Apply site settings'],
+            ['key' => 'admin',       'label' => 'Create admin account'],
         ];
 
         foreach ($substeps as &$substep) {
@@ -1583,13 +1900,10 @@ class Installer
         return in_array($step, $valid, true) ? $step : 'welcome';
     }
 
-    /**
-     * Determine whether the current request is an AJAX substep call.
-     */
+    /** Reports whether the wizard's JavaScript sent the request. */
     private function isAjaxSubstepRequest(): bool
     {
-        return isset($_POST['substep']) || isset($_GET['substep'])
-            || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+        return ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
     }
 
     // -------------------------------------------------------------------------
@@ -1712,7 +2026,7 @@ class Installer
      *
      * GitHub-style archives create: target/reponame-v1.0.0/ (one level of nesting).
      * Flattens that when exactly one entry exists, OR when exactly one entry is an
-     * app-root looking directory (contains runway/app/public markers). Top-level
+     * app-root looking directory (contains app/public markers). Top-level
      * hidden entries and the wizard's own install/ wrapper are treated as
      * non-candidates, so a nested release zip is flattened even when the wizard's
      * wrapper lives alongside it.
@@ -1793,9 +2107,9 @@ class Installer
      */
     private function looksLikePubvanaRoot(string $dir): bool
     {
-        return is_dir($dir . '/runway')
-            && is_dir($dir . '/app')
-            && is_dir($dir . '/public');
+        return is_dir($dir . '/app')
+            && is_dir($dir . '/public')
+            && file_exists($dir . '/public/index.php');
     }
 
     /**

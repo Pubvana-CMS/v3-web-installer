@@ -21,4 +21,7 @@ interface AuthAdapterInterface
      * Create the admin user with the provided form data.
      */
     public function createAdmin(array $data): Result;
+
+    /** Reports whether an administrator row exists. */
+    public function hasAdmin(): bool;
 }

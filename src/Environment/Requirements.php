@@ -80,7 +80,7 @@ class Requirements
     private function checkPhpVersion(array &$results): void
     {
         $minVersion = $this->config['requirements']['php'] ?? '8.2.0';
-        $label      = "PHP Version >= {$minVersion}";
+        $label      = "PHP version >= {$minVersion}";
         $actual     = $this->env->phpVersion;
 
         if ($this->env->phpVersionOk === 'passed' && version_compare($actual, $minVersion, '>=')) {
@@ -94,8 +94,8 @@ class Requirements
                 'label'  => $label,
                 'status' => 'failed',
                 'detail' => $actual !== ''
-                    ? "PHP {$actual} is below the required {$minVersion}"
-                    : "PHP version could not be determined",
+                    ? "PHP {$actual} is below {$minVersion}"
+                    : "PHP version unknown.",
             ];
         }
     }
@@ -142,7 +142,7 @@ class Requirements
             // Nothing is configured, so just report what is available
             foreach ($this->env->dbDrivers as $driver => $driverStatus) {
                 $results[] = [
-                    'label'  => "DB Driver: {$driver}",
+                    'label'  => "DB driver: {$driver}",
                     'status' => $driverStatus === 'passed' ? 'passed' : 'failed',
                     'detail' => $driverStatus === 'passed' ? 'Available' : 'Not installed',
                 ];
@@ -174,30 +174,30 @@ class Requirements
             if (! $atLeastOneAvailable) {
                 // No usable driver at all → every missing one is a blocker
                 $results[] = [
-                    'label'  => "DB Support: {$driver}",
+                    'label'  => "DB support: {$driver}",
                     'status' => 'failed',
-                    'detail' => 'Not installed. No usable database driver was found.',
+                    'detail' => 'Not installed. No usable driver.',
                 ];
             } elseif ($isAvailable && count($availableRequired) === 1) {
                 // This is the only available required driver
                 $results[] = [
-                    'label'  => "DB Support: {$driver}",
+                    'label'  => "DB support: {$driver}",
                     'status' => 'passed',
                     'detail' => 'Available',
                 ];
             } elseif ($isAvailable) {
                 // Available but not the sole option, so warn instead of full pass
                 $results[] = [
-                    'label'  => "DB Support: {$driver}",
+                    'label'  => "DB support: {$driver}",
                     'status' => 'warning',
                     'detail' => 'Available but not the preferred driver',
                 ];
             } else {
                 // Missing, but at least one other required driver is present
                 $results[] = [
-                    'label'  => "DB Support: {$driver}",
+                    'label'  => "DB support: {$driver}",
                     'status' => 'warning',
-                    'detail' => 'Not installed (another required driver is available)',
+                    'detail' => 'Not installed. Another driver is available.',
                 ];
             }
         }
@@ -216,7 +216,7 @@ class Requirements
         // -1 means unlimited
         if ($bytes === -1) {
             $results[] = [
-                'label'  => 'Memory Limit',
+                'label'  => 'Memory limit',
                 'status' => 'passed',
                 'detail' => 'Unlimited',
             ];
@@ -225,13 +225,13 @@ class Requirements
 
         if ($bytes > 0 && $bytes < self::MEMORY_WARN_BYTES) {
             $results[] = [
-                'label'  => 'Memory Limit',
+                'label'  => 'Memory limit',
                 'status' => 'warning',
-                'detail' => "Current: {$raw}. At least 64M is recommended.",
+                'detail' => "Current: {$raw}. 64M or more recommended.",
             ];
         } else {
             $results[] = [
-                'label'  => 'Memory Limit',
+                'label'  => 'Memory limit',
                 'status' => 'passed',
                 'detail' => $raw !== '' ? $raw : 'Unknown',
             ];
@@ -250,7 +250,7 @@ class Requirements
         // 0 means unlimited
         if ($seconds === 0) {
             $results[] = [
-                'label'  => 'Max Execution Time',
+                'label'  => 'Max execution time',
                 'status' => 'passed',
                 'detail' => 'Unlimited',
             ];
@@ -259,13 +259,13 @@ class Requirements
 
         if ($seconds < self::MAX_EXEC_WARN_SECONDS) {
             $results[] = [
-                'label'  => 'Max Execution Time',
+                'label'  => 'Max execution time',
                 'status' => 'warning',
-                'detail' => "Current: {$seconds}s. At least " . self::MAX_EXEC_WARN_SECONDS . 's is recommended.',
+                'detail' => "Current: {$seconds}s. " . self::MAX_EXEC_WARN_SECONDS . 's or more recommended.',
             ];
         } else {
             $results[] = [
-                'label'  => 'Max Execution Time',
+                'label'  => 'Max execution time',
                 'status' => 'passed',
                 'detail' => "{$seconds}s",
             ];
@@ -291,13 +291,13 @@ class Requirements
             $results[] = [
                 'label'  => 'Outbound HTTP',
                 'status' => 'warning',
-                'detail' => 'Unreachable. Manual download may be required.',
+                'detail' => 'Unreachable. Manual download needed.',
             ];
         } else {
             $results[] = [
                 'label'  => 'Outbound HTTP',
                 'status' => 'warning',
-                'detail' => 'Could not be determined. Manual download may be required.',
+                'detail' => 'Unknown. Manual download needed.',
             ];
         }
     }
@@ -313,21 +313,21 @@ class Requirements
 
         if ($status === 'passed') {
             $results[] = [
-                'label'  => 'Target Directory Writable',
+                'label'  => 'Target directory writable',
                 'status' => 'passed',
-                'detail' => 'Directory is writable',
+                'detail' => 'Writable',
             ];
         } elseif ($status === 'failed') {
             $results[] = [
-                'label'  => 'Target Directory Writable',
+                'label'  => 'Target directory writable',
                 'status' => 'failed',
-                'detail' => 'Directory is not writable. Check file permissions.',
+                'detail' => 'Not writable. Check permissions.',
             ];
         } else {
             $results[] = [
-                'label'  => 'Target Directory Writable',
+                'label'  => 'Target directory writable',
                 'status' => 'warning',
-                'detail' => 'Could not be determined',
+                'detail' => 'Unknown.',
             ];
         }
     }
@@ -352,7 +352,7 @@ class Requirements
             $results[] = [
                 'label'  => 'HTTPS',
                 'status' => 'warning',
-                'detail' => 'Not detected. Installer and admin credentials may be transmitted in plaintext.',
+                'detail' => 'Not detected. Credentials travel unencrypted.',
             ];
         }
     }
@@ -369,10 +369,18 @@ class Requirements
         if ($status === 'unknown') {
             // Only relevant for Apache; skip if not applicable
             if ($this->env->serverSoftware === 'Apache') {
+                $detail = 'Not verified. Clean URLs may not work.';
+
+                if ($this->env->modRewriteReason === 'auth') {
+                    $detail = 'Blocked by HTTP authentication. Remove directory protection to test.';
+                } elseif ($this->env->modRewriteReason === 'unreachable') {
+                    $detail = 'Server cannot reach itself. Common on shared hosting.';
+                }
+
                 $results[] = [
                     'label'  => 'Apache mod_rewrite',
                     'status' => 'warning',
-                    'detail' => 'Could not be verified. Clean URLs may not work.',
+                    'detail' => $detail,
                 ];
             }
             return;
@@ -388,7 +396,7 @@ class Requirements
             $results[] = [
                 'label'  => 'Apache mod_rewrite',
                 'status' => 'failed',
-                'detail' => 'Disabled. Clean URLs (index.php-less routing) will not work.',
+                'detail' => 'Disabled. Clean URLs will not work.',
             ];
         }
     }
@@ -404,22 +412,22 @@ class Requirements
 
         if ($method === 'direct') {
             $results[] = [
-                'label'  => 'Filesystem Access',
+                'label'  => 'Filesystem access',
                 'status' => 'passed',
-                'detail' => 'Direct (web server runs as file owner)',
+                'detail' => 'Direct (files writable by the web server)',
             ];
         } elseif ($method === 'unknown') {
             $results[] = [
-                'label'  => 'Filesystem Access',
+                'label'  => 'Filesystem access',
                 'status' => 'warning',
-                'detail' => 'Could not be determined',
+                'detail' => 'Unknown.',
             ];
         } else {
             // ftp, ftps and ssh2 are not necessarily blockers but are worth noting
             $results[] = [
-                'label'  => 'Filesystem Access',
+                'label'  => 'Filesystem access',
                 'status' => 'warning',
-                'detail' => "Method: {$method}. The web server does not own the files. FTP/SSH credentials may be needed.",
+                'detail' => "Method: {$method}. Web server cannot write files. Use FTP or SSH credentials.",
             ];
         }
     }
@@ -442,10 +450,10 @@ class Requirements
 
         if (! empty($criticalDisabled)) {
             $results[] = [
-                'label'  => 'Disabled Functions',
+                'label'  => 'Disabled functions',
                 'status' => 'warning',
-                'detail' => 'Critical functions disabled: ' . implode(', ', $criticalDisabled)
-                    . '. Some installer features may be unavailable.',
+                'detail' => 'Disabled: ' . implode(', ', $criticalDisabled)
+                    . '. Some features unavailable.',
             ];
         }
     }

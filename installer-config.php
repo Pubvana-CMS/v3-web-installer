@@ -5,7 +5,7 @@
  * Customize this file for your Pubvana CMS v3 application.
  * See the README for full documentation of all options.
  */
-$version = '3.0.0-beta.2';
+$version = '3.0.0-rc2';
 
 return [
     // --- Branding ---
@@ -83,20 +83,20 @@ return [
     'env_vars' => [
         [
             'key'      => 'SITE_NAME',
-            'label'    => 'Site Name',
+            'label'    => 'Site name',
             'type'     => 'text',
             'required' => true,
             'group'    => 'Site',
-            'help'     => 'The name of your website, shown in the title and header.',
+            'help'     => 'Shown in the page title and header.',
             'default'  => 'Pubvana v3',
         ],
         [
             'key'      => 'ADMIN_EMAIL',
-            'label'    => 'Admin Email',
+            'label'    => 'Admin email',
             'type'     => 'email',
             'required' => true,
             'group'    => 'Site',
-            'help'     => 'The site\'s contact/admin email address.',
+            'help'     => 'Shown as the site contact address.',
             'default'  => '',
         ],
     ],
@@ -115,7 +115,7 @@ return [
     // and assigns the configured group (seeded on first boot).
     'auth' => [
         'system'  => 'shield',
-        'collect' => ['username', 'email', 'password'],
+        'collect' => ['email', 'password'],
         'group'   => 'superadmin',
         // For 'custom' system only:
         // 'table'         => 'users',
@@ -131,5 +131,5 @@ return [
     'public_dir_handling' => 'none',
 
     // --- Post-Install Redirect ---
-    'post_install_url' => '/',
+    'post_install_url' => '/auth/login',
 ];

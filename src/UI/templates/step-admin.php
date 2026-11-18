@@ -27,7 +27,7 @@ $hasPasswordField = ! empty(array_filter($fields, fn($f) => ($f['type'] ?? '') =
     <!-- No auth configured. Skip the step -->
     <div class="flex flex-col items-center gap-4 py-4 text-center">
         <div class="alert alert-info w-full max-w-sm">
-            <span>No admin account setup required for this installation.</span>
+            <span>No admin account needed.</span>
         </div>
     </div>
     <div class="flex justify-between pt-4">
@@ -94,7 +94,7 @@ $hasPasswordField = ! empty(array_filter($fields, fn($f) => ($f['type'] ?? '') =
             <?php endif; ?>
 
             <p class="text-base-content/70 text-sm mb-5">
-                Create the administrator account you will use to log in after installation.
+                Used to sign in after installation.
             </p>
 
             <?php foreach ($fields as $field):
@@ -154,14 +154,14 @@ $hasPasswordField = ! empty(array_filter($fields, fn($f) => ($f['type'] ?? '') =
                             'text-info':    strength === 3,
                             'text-success': strength === 4
                         }">
-                            Password strength: <span x-text="strengthLabel"></span>
+                            Password strength <span x-text="strengthLabel"></span>
                         </p>
                     </div>
 
                     <!-- Password confirm (added after the password field) -->
                     <div class="form-control mt-4">
                         <label class="label" for="admin_password_confirm">
-                            <span class="label-text font-medium">Confirm Password <span class="text-error">*</span></span>
+                            <span class="label-text font-medium">Confirm password <span class="text-error">*</span></span>
                         </label>
                         <div class="join w-full">
                             <input

@@ -23,6 +23,7 @@ $substeps  = $data['substeps']  ?? [
     ['key' => 'write_env',   'label' => 'Write .env configuration'],
     ['key' => 'permissions', 'label' => 'Set file permissions'],
     ['key' => 'migrations',  'label' => 'Run database migrations & seeds'],
+    ['key' => 'site_settings', 'label' => 'Apply site settings'],
     ['key' => 'admin',       'label' => 'Create admin user'],
 ];
 $completed = $data['completed'] ?? [];
@@ -115,7 +116,12 @@ $errorsJson    = json_encode($errors);
                             class="badge badge-sm badge-success"
                         >Done</span>
                     </div>
-                    <!-- Error detail -->
+                    <!-- Progress / error detail -->
+                    <p
+                        x-show="stepStatus(sub.key) === 'running' && currentMessage"
+                        class="text-xs text-base-content/60 mt-0.5"
+                        x-text="currentMessage"
+                    ></p>
                     <p
                         x-show="stepStatus(sub.key) === 'failed'"
                         class="text-xs text-error mt-0.5"
@@ -132,7 +138,7 @@ $errorsJson    = json_encode($errors);
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            <span>All installation steps completed successfully!</span>
+            <span>Installation complete.</span>
         </div>
         <div class="flex justify-end">
             <a href="<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>?step=complete" class="btn btn-primary gap-2">
@@ -150,10 +156,13 @@ $errorsJson    = json_encode($errors);
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
             <div>
-                <p class="font-semibold">Installation step failed.</p>
+                <p class="font-semibold">Step failed.</p>
                 <p class="text-sm" x-text="currentError"></p>
-                <p class="text-sm mt-1" x-show="!manualUpload">
-                    You may retry the failed step, or
+                <p class="text-sm mt-1" x-show="reloadRequired">
+                    Session expired.
+                </p>
+                <p class="text-sm mt-1" x-show="!manualUpload && !reloadRequired">
+                    Retry, or
                     <a href="<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>?step=admin" class="link">go back</a>
                     and check your settings.
                 </p>
@@ -163,7 +172,7 @@ $errorsJson    = json_encode($errors);
         <!-- Manual upload form (shown when download fails) -->
         <div x-show="manualUpload" class="mb-4">
             <div class="border border-base-300 rounded-lg p-4 bg-base-50">
-                <p class="text-sm font-medium mb-1">Upload Release Zip</p>
+                <p class="text-sm font-medium mb-1">Upload release zip</p>
                 <p class="text-xs text-base-content/60 mb-3" x-show="manualZipUrl">
                     Download from: <a :href="manualZipUrl" x-text="manualZipUrl" target="_blank" class="link link-primary break-all"></a>
                 </p>
@@ -191,12 +200,25 @@ $errorsJson    = json_encode($errors);
         <button
             type="button"
             class="btn btn-warning gap-2"
+            x-show="!reloadRequired"
             @click="retry()"
         >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
             Retry
+        </button>
+
+        <button
+            type="button"
+            class="btn btn-primary gap-2"
+            x-show="reloadRequired"
+            @click="location.reload()"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            Reload
         </button>
     </div>
 
@@ -210,7 +232,7 @@ $errorsJson    = json_encode($errors);
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                 </svg>
-                Begin Installation
+                Begin installation
             </button>
         </div>
     </div>
@@ -222,7 +244,7 @@ $errorsJson    = json_encode($errors);
     <?php if ($nextNoJsStep): ?>
         <div class="mt-4 p-4 bg-warning/10 border border-warning/30 rounded-lg">
             <p class="text-sm text-base-content/80 mb-3">
-                JavaScript is not available. Click the button below to run each installation step one at a time.
+                JavaScript disabled. Run each step below.
             </p>
             <p class="font-medium text-sm mb-3">
                 Next: <?= htmlspecialchars($nextNoJsStep['label'], ENT_QUOTES, 'UTF-8') ?>
@@ -232,13 +254,13 @@ $errorsJson    = json_encode($errors);
                 <input type="hidden" name="substep"    value="<?= htmlspecialchars($nextNoJsStep['key'], ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                 <button type="submit" class="btn btn-primary">
-                    Run Step &rarr;
+                    Run step &rarr;
                 </button>
             </form>
         </div>
     <?php else: ?>
         <div class="mt-4">
-            <div class="alert alert-success">All steps complete.</div>
+            <div class="alert alert-success">All steps completed.</div>
             <a href="<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>?step=complete" class="btn btn-primary mt-3">Finish</a>
         </div>
     <?php endif; ?>
@@ -259,6 +281,8 @@ function installWizard() {
         manualFile:   null,
         uploading:    false,
         uploadError:  '',
+        reloadRequired: false,
+        currentMessage:  '',
 
         init() {
             // If some steps are already done (page reload after partial failure), resume
@@ -295,23 +319,58 @@ function installWizard() {
 
         async startInstall() {
             this.phase = 'running';
+            this.reloadRequired = false;
+
             for (const sub of this.substeps) {
                 if (this.completed[sub.key]) continue;
                 if (this.errors[sub.key])    break;
 
-                this.currentKey = sub.key;
-                const ok = await this.runStep(sub);
-                if (! ok) {
-                    this.phase = 'error';
+                this.currentKey     = sub.key;
+                this.currentMessage = '';
+
+                // Retry a step that reports it is still working.
+                let attempt  = 0;
+                let outcome;
+
+                do {
+                    outcome = await this.runStep(sub);
+
+                    if (outcome.status === 'retry') {
+                        attempt++;
+                        this.currentMessage = outcome.message;
+                        if (attempt >= 10) {
+                            outcome = {
+                                status:  'error',
+                                message: outcome.message + ' Retries stopped. Use Retry.',
+                            };
+                            break;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                    }
+                } while (outcome.status === 'retry');
+
+                if (outcome.status !== 'ok') {
+                    this.errors[sub.key]   = outcome.message;
+                    this.currentError      = outcome.message;
+                    this.reloadRequired    = !!outcome.reloadRequired;
+                    this.manualUpload      = !!outcome.manualUpload;
+                    this.manualZipUrl      = outcome.zipUrl ?? '';
+                    this.phase             = 'error';
                     return;
                 }
+
                 this.completed[sub.key] = true;
+                this.currentMessage     = '';
             }
+
             this.phase       = 'complete';
             this.currentKey  = null;
         },
 
         async runStep(sub) {
+            const controller = new AbortController();
+            const timer      = setTimeout(() => controller.abort(), 120000);
+
             try {
                 const body = new URLSearchParams({
                     substep:    sub.key,
@@ -320,24 +379,64 @@ function installWizard() {
                 });
                 const resp = await fetch('<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type':     'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
                     body:   body.toString(),
+                    signal: controller.signal,
                 });
-                const json = await resp.json();
-                if (! json.success) {
-                    this.errors[sub.key]  = json.message ?? 'Unknown error.';
-                    this.currentError     = this.errors[sub.key];
-                    if (json.manual_upload) {
-                        this.manualUpload = true;
-                        this.manualZipUrl = json.zip_url ?? '';
-                    }
-                    return false;
+
+                // Parse text to catch HTML error pages.
+                const text = await resp.text();
+                let json = null;
+
+                try {
+                    json = JSON.parse(text);
+                } catch (e) {
+                    json = null;
                 }
-                return true;
+
+                if (json === null) {
+                    return {
+                        status:  'error',
+                        message: 'Unexpected server response (HTTP ' + resp.status + '). Retry.',
+                    };
+                }
+
+                if (json.csrf_invalid) {
+                    return {
+                        status:         'error',
+                        reloadRequired: true,
+                        message:        json.message ?? 'Session expired. Reload.',
+                    };
+                }
+
+                if (json.retry) {
+                    return { status: 'retry', message: json.message ?? 'Still working...' };
+                }
+
+                if (! json.success) {
+                    return {
+                        status:       'error',
+                        message:      json.message ?? 'Unknown error.',
+                        manualUpload: !!json.manual_upload,
+                        zipUrl:       json.zip_url ?? '',
+                    };
+                }
+
+                return { status: 'ok' };
             } catch (e) {
-                this.errors[sub.key]  = 'Network error: ' + e.message;
-                this.currentError     = this.errors[sub.key];
-                return false;
+                const aborted = e && e.name === 'AbortError';
+
+                return {
+                    status:  'error',
+                    message: aborted
+                        ? 'Request timed out. Retry.'
+                        : 'Network error. ' + e.message,
+                };
+            } finally {
+                clearTimeout(timer);
             }
         },
 
@@ -353,10 +452,11 @@ function installWizard() {
                 form.append('csrf_token', this.csrfToken);
 
                 const resp = await fetch('<?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?>', {
-                    method: 'POST',
-                    body:   form,
+                    method:  'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body:    form,
                 });
-                const json = await resp.json();
+                const json = JSON.parse(await resp.text());
 
                 if (!json.success) {
                     this.uploadError = json.message ?? 'Upload failed.';
@@ -381,8 +481,9 @@ function installWizard() {
             if (this.currentKey) {
                 delete this.errors[this.currentKey];
             }
-            this.currentError = '';
-            this.manualUpload = false;
+            this.currentError    = '';
+            this.reloadRequired  = false;
+            this.manualUpload    = false;
             this.manualFile   = null;
             this.uploadError  = '';
             this.startInstall();

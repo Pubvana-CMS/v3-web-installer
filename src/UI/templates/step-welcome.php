@@ -10,7 +10,7 @@ $appName    = htmlspecialchars($config['branding']['name']    ?? 'Application', 
 $appVersion = htmlspecialchars($config['branding']['version'] ?? '1.0.0',       ENT_QUOTES, 'UTF-8');
 $welcomeText = !empty($config['branding']['welcome_text'])
     ? $config['branding']['welcome_text']
-    : "This wizard will guide you through the installation of " . ($config['branding']['name'] ?? 'this application') . ". The process takes just a few minutes.";
+    : "Installs " . ($config['branding']['name'] ?? 'this application') . " in a few minutes.";
 ?>
 
 <div class="flex flex-col items-center text-center gap-6 py-4">
@@ -48,7 +48,7 @@ $welcomeText = !empty($config['branding']['welcome_text'])
         <ul class="space-y-1 text-sm text-base-content/80">
             <li class="flex items-start gap-2">
                 <span class="text-success mt-0.5">&#10003;</span>
-                Check your server meets the requirements
+                Check server requirements
             </li>
             <li class="flex items-start gap-2">
                 <span class="text-success mt-0.5">&#10003;</span>
@@ -56,11 +56,11 @@ $welcomeText = !empty($config['branding']['welcome_text'])
             </li>
             <li class="flex items-start gap-2">
                 <span class="text-success mt-0.5">&#10003;</span>
-                Download and install the application files
+                Install the application files
             </li>
             <li class="flex items-start gap-2">
                 <span class="text-success mt-0.5">&#10003;</span>
-                Run database migrations and create your admin account
+                Set up the database and admin account
             </li>
         </ul>
     </div>
@@ -70,7 +70,7 @@ $welcomeText = !empty($config['branding']['welcome_text'])
         <input type="hidden" name="step"       value="system-check">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
         <button type="submit" class="btn btn-primary btn-lg gap-2">
-            Let&rsquo;s get started
+            Get started
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>

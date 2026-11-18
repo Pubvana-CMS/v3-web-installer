@@ -68,7 +68,7 @@ class ConnectionTester
     {
         if (! $this->checkRateLimit()) {
             return Result::fail(
-                'Rate limit exceeded: too many connection attempts. Please wait a few minutes and try again.'
+                'Too many attempts. Wait a few minutes.'
             );
         }
 
@@ -90,7 +90,7 @@ class ConnectionTester
     {
         if (! $this->checkRateLimit()) {
             return Result::fail(
-                'Rate limit exceeded: too many connection attempts. Please wait a few minutes and try again.'
+                'Too many attempts. Wait a few minutes.'
             );
         }
 
@@ -219,6 +219,6 @@ class ConnectionTester
 
         mysqli_close($conn);
 
-        return Result::ok("Database '{$db}' created successfully.");
+        return Result::ok("Database '{$db}' created.");
     }
 }

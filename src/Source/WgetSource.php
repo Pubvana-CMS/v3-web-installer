@@ -59,7 +59,7 @@ class WgetSource implements SourceInterface
     public function download(string $targetDir): Result
     {
         if (! $this->canExecute()) {
-            return Result::fail('The wget command-line utility is not available.');
+            return Result::fail('wget is not available.');
         }
 
         if (! is_dir($targetDir)) {
@@ -104,8 +104,8 @@ class WgetSource implements SourceInterface
         if ($magic !== 'PK') {
             @unlink($zipPath);
             return Result::fail(
-                'Downloaded file does not appear to be a valid zip archive '
-                . '(missing PK magic bytes). The server may have returned an error page.'
+                'Downloaded file is not a valid zip. '
+                . 'The server may have returned an error page.'
             );
         }
 

@@ -24,9 +24,9 @@ $appName          = htmlspecialchars($config['branding']['name'] ?? 'your applic
 
     <!-- Heading -->
     <div>
-        <h2 class="text-2xl font-extrabold text-base-content">Installation Complete!</h2>
+        <h2 class="text-2xl font-extrabold text-base-content">Installation complete.</h2>
         <p class="text-base-content/60 text-sm mt-1">
-            <?= $appName ?> has been successfully installed.
+            <?= $appName ?> is installed.
         </p>
     </div>
 
@@ -41,13 +41,13 @@ $appName          = htmlspecialchars($config['branding']['name'] ?? 'your applic
         </svg>
         <div>
             <?php if ($installerRemoved): ?>
-                <p class="font-semibold">Security: Installer removed</p>
-                <p class="text-sm mt-0.5">The installer files have been automatically deleted from your server.</p>
+                <p class="font-semibold">Installer removed</p>
+                <p class="text-sm mt-0.5">Installer files deleted.</p>
             <?php else: ?>
-                <p class="font-semibold">Security Notice</p>
+                <p class="font-semibold">Installer files present</p>
                 <p class="text-sm mt-0.5">
-                    Please <strong>delete <code><?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?></code>, <code><?= htmlspecialchars(pathinfo($scriptName, PATHINFO_FILENAME) . '.zip', ENT_QUOTES, 'UTF-8') ?></code>, and <code>installer-config.php</code></strong>
-                    from your server immediately. Leaving them in place is a security risk.
+                    Delete <strong><code><?= htmlspecialchars($scriptName, ENT_QUOTES, 'UTF-8') ?></code>, <code><?= htmlspecialchars(pathinfo($scriptName, PATHINFO_FILENAME) . '.zip', ENT_QUOTES, 'UTF-8') ?></code>, and <code>installer-config.php</code></strong> now.
+                    Leaving them in place is a security risk.
                 </p>
             <?php endif; ?>
         </div>
@@ -55,7 +55,7 @@ $appName          = htmlspecialchars($config['branding']['name'] ?? 'your applic
 
     <!-- What was done summary -->
     <div class="bg-base-200 rounded-xl p-4 text-left w-full max-w-md">
-        <p class="font-semibold text-sm text-base-content mb-2">Installation summary:</p>
+        <p class="font-semibold text-sm text-base-content mb-2">Summary</p>
         <ul class="space-y-1 text-sm text-base-content/70">
             <li class="flex items-center gap-2">
                 <span class="text-success">&#10003;</span>
@@ -93,7 +93,7 @@ $appName          = htmlspecialchars($config['branding']['name'] ?? 'your applic
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
             </svg>
-            Visit Your Site
+            Visit your site
         </a>
     </div>
 

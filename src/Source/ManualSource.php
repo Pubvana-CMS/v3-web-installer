@@ -27,7 +27,7 @@ class ManualSource implements SourceInterface
     public function download(string $targetDir): Result
     {
         return Result::fail(
-            'Automatic download failed. Please upload the release zip file using the form below.'
+            'Automatic download failed. Upload the release zip below.'
         );
     }
 

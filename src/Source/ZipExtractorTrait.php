@@ -93,7 +93,7 @@ trait ZipExtractorTrait
      *
      * GitHub-style archives create: $dir/reponame-v1.0.0/. This method flattens
      * that when there is exactly one top-level entry, OR when exactly one entry
-     * looks like the application root (contains runway + app + public markers).
+     * looks like the application root (contains app + public markers).
      * Hidden entries and non-app directories (e.g. a coexisting installer
      * wrapper) are ignored when picking a candidate.
      */
@@ -148,8 +148,8 @@ trait ZipExtractorTrait
      */
     private function looksLikeAppRoot(string $dir): bool
     {
-        return is_dir($dir . DIRECTORY_SEPARATOR . 'runway')
-            && is_dir($dir . DIRECTORY_SEPARATOR . 'app')
-            && is_dir($dir . DIRECTORY_SEPARATOR . 'public');
+        return is_dir($dir . DIRECTORY_SEPARATOR . 'app')
+            && is_dir($dir . DIRECTORY_SEPARATOR . 'public')
+            && file_exists($dir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'index.php');
     }
 }

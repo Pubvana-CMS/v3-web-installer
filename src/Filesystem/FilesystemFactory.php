@@ -33,7 +33,7 @@ class FilesystemFactory
 
         // Real write test. This is the only signal that matters. If the web server can
         // create and delete a file here, direct access works regardless of
-        // who owns the directory (group-writable dirs, setgid setups, etc.).
+        // which account writes the directory (group-writable dirs, setgid, etc.).
         $tempFile = rtrim($targetDir, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
             . '.pv3_write_test_' . uniqid('', true);

@@ -219,6 +219,39 @@ class GenericAdapter implements AuthAdapterInterface
         ]);
     }
 
+    public function hasAdmin(): bool
+    {
+        $table = $this->authConfig['table'] ?? 'users';
+
+        try {
+            $connection = $this->connect();
+        } catch (\Throwable) {
+            return false;
+        }
+
+        try {
+            if ($connection instanceof \mysqli) {
+                $result = $connection->query('SELECT COUNT(*) FROM `' . $table . '`');
+
+                return $result !== false && (int) $result->fetch_row()[0] > 0;
+            }
+
+            if ($connection instanceof \PDO) {
+                return (int) $connection->query('SELECT COUNT(*) FROM `' . $table . '`')->fetchColumn() > 0;
+            }
+
+            if ($connection instanceof \SQLite3) {
+                $result = $connection->query('SELECT COUNT(*) FROM `' . $table . '`');
+
+                return $result !== false && (int) $result->fetchArray(SQLITE3_NUM)[0] > 0;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return false;
+    }
+
     // -------------------------------------------------------------------------
     // Query helpers
     // -------------------------------------------------------------------------

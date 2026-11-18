@@ -42,6 +42,9 @@ class ServerEnvironment
     /** 'passed' | 'failed' | 'unknown' */
     public string $modRewrite = 'unknown';
 
+    /** Why the mod_rewrite probe was inconclusive: '' | 'auth' | 'unreachable' */
+    public string $modRewriteReason = '';
+
     /** 'passed' | 'failed' | 'unknown' */
     public string $execAvailable = 'unknown';
 
