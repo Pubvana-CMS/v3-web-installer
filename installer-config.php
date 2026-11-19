@@ -13,9 +13,9 @@ return [
         'name'          => 'Pubvana CMS',
         'version'       => $version,
         'logo'          => 'https://cdn.pubvana.net/pubvana_logo.png',
-        'support_url'   => 'https://pubvanacms.com/contact',
+        'support_url'   => 'https://pubvanacms.com/contact-us',
         'support_email' => 'cs@pubvana.net',
-        'welcome_text'  => 'Welcome to the Pubvana Installer',  // empty = auto-generated from app name
+        'welcome_text'  => 'Welcome to the Pubvana CMS Installer for version ' . $version,  // empty = auto-generated from app name
         'colors'        => [
             'primary'   => '#0f172a',
             'secondary' => '#1e293b',

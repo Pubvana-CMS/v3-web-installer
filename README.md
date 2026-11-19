@@ -4,7 +4,7 @@
 
 Built on the [CodeIgniter 4 Flexible Web App Installer](https://github.com/enlivenapp/CodeIgniter4-Flexible-Web-App-Installer), this project produces a self-extracting installer for Pubvana CMS via a step-by-step web wizard for the user.
 
-If you're looking to install Pubvana, get the built installer at [Pubvana's Website](https://pubvana.net/dstore/product/pubvana-easy-installer). This repo is to build the installer.
+If you're looking to install Pubvana, get the built installer at [Pubvana's Website](https://pubvanacms.com/store/installers/v3-web-installer). This repo is to build the installer.
 
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
@@ -212,6 +212,7 @@ The installer writes each finished substep to `.installer-progress.json` next to
 - An expired session reads database and site URL from the installed `.env`. Enter administrator details again on the Admin Account step.
 - An existing administrator account skips creation.
 - `install.php` deletes the progress file on completion.
+- `?step=complete` redirects to the install step until every substep finishes.
 
 ---
 
@@ -312,10 +313,10 @@ The self-extraction stub includes three fallback methods:
 2. exec('tar') (if exec is available)
 3. Pure PHP tar parser (always works if ext-zlib is present)
 
-### Custom Build Output
+### Custom Build Name and Output
 
 ```bash
-php build/pack.php --output=/path/to/install.php
+php build/pack.php --name=my-installer --output=/path/to/install.php
 ```
 
 ### CSS/JS Assets
@@ -500,6 +501,10 @@ This project is licensed under the [Creative Commons Attribution 4.0 Internation
 You are free to use, modify, and distribute this software for any purpose, including commercial use, as long as you include the attribution.
 
 ---
+
+## Contributors
+
+- [preko69](https://github.com/preko69)
 
 ## Contributing
 

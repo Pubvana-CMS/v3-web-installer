@@ -1,86 +1,107 @@
 # Pubvana Installer
 
-Install Pubvana on any PHP hosting environment through a guided web wizard. No command line required.
+Install Pubvana on PHP hosting through a web wizard. No command line required.
 
-## What You Get
+## Installer name
 
-Pubvana is a CMS and blogging platform built on CodeIgniter 4. This installer handles the full setup: server checks, database configuration, file permissions, migrations, seeding, and admin account creation.
+`--name` sets the installer name. This guide uses `<name>` for it. `--name=3.0.0` produces:
+
+- `3.0.0.zip`
+- a folder named `3.0.0`
+- the script `3.0.0.php`
+
+The build tool defaults to `install`.
 
 ## Requirements
 
 - PHP 8.2 or higher
-- MySQL database
-- Required PHP extensions: curl, mbstring, intl, json, fileinfo, openssl
-- A web server (Apache, LiteSpeed, Nginx, or IIS)
+- MySQL or MariaDB
+- PHP extensions: curl, mbstring, intl, json, fileinfo, openssl, pdo, pdo_mysql, mysqli, zip
+- Apache, LiteSpeed, Nginx, or IIS
 
 ## Installation
 
 ### 1. Upload
 
-Extract the installer zip on your server. You should have two files in your web root:
+1. Upload `<name>.zip` to your web root. On many hosts this is `public_html`.
+2. Extract the zip there.
 
-- `install.php`
-- `installer-config.php`
+You should have:
 
-### 2. Run the Wizard
+- `<name>/<name>.php`
+- `<name>/installer-config.php`
 
-Navigate to `install.php` in your browser (e.g., `https://yourdomain.com/install.php`). The wizard walks you through each step:
+With the default configuration, Pubvana installs into the folder above `<name>`, which is your web root.
 
-**System Check** -- verifies your server meets the requirements. Green means good, red means something needs fixing before you can proceed.
+If your host cannot extract zips, unzip the package on your computer. Create a folder named `<name>` in your web root and upload the two files into it.
 
-**Filesystem** -- the installer figures out how to write files. On most shared hosting this happens automatically. If your PHP process doesn't own the target directory, you'll be asked for FTP or SSH credentials.
+### 2. Run the wizard
 
-**Database** -- enter your MySQL credentials. The installer tests the connection before moving on.
+Open `https://yourdomain.com/<name>/<name>.php`.
 
-**Configuration** -- confirm your base URL and environment setting. An encryption key is generated automatically.
+The wizard runs these steps:
 
-**Admin Account** -- create your first admin user. You'll set an email and password. This account gets superadmin privileges.
+**System Check**: checks your server against the requirements. Green means pass. Red means fix it before you continue.
 
-**Install** -- the installer downloads Pubvana, extracts it, writes your `.env` file, runs database migrations, seeds initial data, and creates your admin account. Each step shows progress so you know what's happening.
+**Filesystem**: tests direct write access. Most shared hosts allow this. If it fails, the wizard asks for FTP or SSH credentials.
 
-**Done** -- the installer cleans up after itself and redirects you to the login page.
+**Database**: collects your MySQL or MariaDB credentials and tests the connection.
 
-### 3. Log In
+**Configuration**: collects the base URL and environment. The installer generates an encryption key.
 
-After installation completes, you're redirected to `/login`. Sign in with the admin credentials you just created.
+**App Settings**: collects the site name and admin email.
 
-## How Pubvana Gets Downloaded
+**Admin Account**: creates the first admin user from an email and password. The account gets the `superadmin` group.
 
-The installer tries multiple methods in order, picking the best one your server supports:
+**Install**: downloads Pubvana, extracts it, validates the source, writes `.env`, sets permissions, runs migrations, applies site settings, and creates the admin account. The wizard shows progress for each substep.
 
-1. **Composer** (`enlivenapp/pubvana`) -- if composer is available on the server
-2. **Git** -- if git is available
-3. **Direct download** -- falls back to downloading the zip from GitHub
-4. **Manual upload** -- if nothing else works, you get instructions for uploading the files yourself
+**Done**: removes the installer files and displays a link to your site.
 
-You don't need to choose. The installer detects what's available and picks the fastest option.
+### 3. Log in
+
+Open the link on the completion page, or go to `https://yourdomain.com/auth/login`. Sign in with the admin credentials you created.
+
+## How the installer downloads Pubvana
+
+The installer tries these methods in order and uses the first one the server supports:
+
+1. **cURL** when the curl extension is available
+2. **wget** when the server can run shell commands
+3. **PHP stream download** when `allow_url_fopen` is enabled
+4. **Manual upload** when all three fail
+
+For manual upload, the wizard shows an upload field and a link to the release zip.
 
 ## Web Server Notes
 
-Pubvana ships its own `.htaccess` files for Apache and LiteSpeed, so the installer leaves those alone. If you're running Nginx or IIS, you'll need to configure your server to route requests through the `public/` directory yourself.
+The Pubvana release includes `.htaccess` files for Apache and LiteSpeed. The installer does not change them. On Nginx or IIS, route requests through the `public/` directory yourself.
 
 ## After Installation
 
-The `install.php` file deletes itself when installation completes. If deletion fails (some hosting environments prevent it), an `install.lock` file is created instead, which prevents the installer from running again.
+On success, the installer deletes `<name>.php`, `installer-config.php`, and `<name>.zip`. It also deletes `.installer-progress.json` and the `.pubvana-installer` temp folder. It removes the `<name>` folder when empty.
 
-If you need to reinstall, delete both `install.lock` and re-upload `install.php`.
+If a file deletion fails, the installer creates `install.lock`. The built `<name>.php` exits when that file exists, so the installer cannot run again.
+
+If you need to reinstall, delete `install.lock` and upload the installer files again.
 
 ## Troubleshooting
 
-**System check shows red items** -- your hosting environment is missing something Pubvana needs. The most common issue is a missing PHP extension. Contact your hosting provider to enable the required extensions listed above.
+**System check shows red items**: your host is missing a requirement. The usual cause is a missing PHP extension. Ask your host to enable the extensions listed above.
 
-**Database connection fails** -- double-check your hostname, username, password, and database name. On shared hosting the database host is usually `localhost`. Some providers use a different hostname, which you can find in your hosting control panel.
+**Database connection fails**: check the hostname, username, password, and database name. On shared hosting the database host is usually `localhost`. Some providers use a different hostname. The correct value is in your hosting control panel.
 
-**Permission errors during install** -- the installer needs to write files to your web directory. If direct PHP access doesn't work, the wizard will ask for FTP or SSH credentials as an alternative.
+**Permission errors during install**: the installer needs write access to your web directory. If direct PHP access fails, the wizard asks for FTP or SSH credentials.
 
-**Blank page or 500 error** -- check your PHP error log. The most common cause is an unsupported PHP version.
+**Blank page or 500 error**: check your PHP error log. The usual cause is an unsupported PHP version.
+
+**The installer says it is already installed**: delete `install.lock`, then upload the installer files again.
 
 ## Support
 
-Visit [pubvana.net/contact](https://pubvana.net/contact) for help.
+Visit [pubvana.net/contact-us](https://pubvana.net/contact-us) for help.
 
 ## License
 
-Pubvana Installer is licensed under the [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
+Creative Commons Attribution 4.0 International License. See [creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/).
 
 Original installer script by EnlivenApp.

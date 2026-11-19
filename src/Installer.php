@@ -802,6 +802,12 @@ class Installer
      */
     private function handleComplete(): string
     {
+        // Only finish after every substep ran. This stops a direct request to
+        // ?step=complete from deleting the installer mid-install.
+        if (! $this->installationIsComplete()) {
+            $this->redirect('install');
+        }
+
         $fs = $this->getFilesystem();
 
         // Attempt to delete all installer files. The wizard's own files live in
@@ -1595,6 +1601,7 @@ class Installer
         }
 
         @file_put_contents($this->progressFile(), $json, LOCK_EX);
+        @chmod($this->progressFile(), 0600);
     }
 
     /**
@@ -1605,6 +1612,20 @@ class Installer
     private function completedSubsteps(): array
     {
         return $this->readCompletedProgress() + $this->getFromSession(self::SESS_SUBSTEPS, []);
+    }
+
+    /**
+     * Whether every install substep finished.
+     */
+    private function installationIsComplete(): bool
+    {
+        foreach ($this->buildSubstepList() as $substep) {
+            if (empty($substep['completed'])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Read a key from the installed .env file. */

@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.0] - 2026-11-19
+
+### Fixed
+
+- A GET request to `<name>.php?step=complete` would delete everything installer related and potentially leave a mess mid-install. Now it redirects to the next incomplete install step until every substep finishes.
+
+## [un-versioned] - 2026-11-18
 
 ### Added
 
